@@ -2,20 +2,19 @@
 
 ## 1. Arquitectura de producción
 
-El archivo `compose.yaml` levanta tres servicios:
+El archivo `compose.yaml` levanta dos servicios y se conecta al MySQL que ya existe en Dokploy:
 
 - `frontend`: compila React y lo sirve mediante Nginx en el puerto interno 80.
 - `backend`: ejecuta Node.js y Express en el puerto interno 5000.
-- `mysql`: ejecuta MySQL 8.4 únicamente dentro de la red privada de Docker.
+- MySQL existente: servicio de base de datos administrado por Dokploy.
 
 Nginx sirve la aplicación y reenvía las peticiones `/api/*` al backend. Solo el frontend debe recibir un dominio público.
 
-Los datos persistentes se almacenan en dos volúmenes Docker nombrados:
+Los PDF se almacenan en un volumen Docker nombrado del Compose:
 
-- `curso_mysql_data`: archivos internos de MySQL.
 - `curso_uploads`: documentos PDF montados en `/app/backend/uploads`.
 
-Estos volúmenes sobreviven a reinicios, reconstrucciones y nuevos despliegues. Nunca guardes los PDFs únicamente dentro de la imagen o del checkout de GitHub.
+El volumen sobrevive a reinicios, reconstrucciones y nuevos despliegues. Los datos de MySQL permanecen en el volumen del servicio MySQL existente. Nunca guardes los PDFs únicamente dentro de la imagen o del checkout de GitHub.
 
 ## 2. Requisitos previos
 
@@ -23,7 +22,8 @@ Estos volúmenes sobreviven a reinicios, reconstrucciones y nuevos despliegues. 
 - Un VPS con Dokploy instalado y Docker operativo.
 - Un dominio o subdominio, por ejemplo `inscripciones.undc.edu.pe`.
 - Acceso al DNS del dominio para crear un registro `A` hacia la IP pública del VPS.
-- Contraseñas nuevas y distintas para MySQL, el administrador y JWT.
+- Las credenciales internas del servicio MySQL existente.
+- Contraseñas nuevas y distintas para el administrador y JWT.
 
 ## 3. Publicar el proyecto en GitHub
 
@@ -78,9 +78,11 @@ En la sección **Environment** del servicio Compose agrega valores reales:
 ```env
 APP_URL=https://inscripciones.undc.edu.pe
 
-DB_USER=curso_app
-DB_PASSWORD=CLAVE_MYSQL_DE_APLICACION
-MYSQL_ROOT_PASSWORD=CLAVE_MYSQL_ROOT_DISTINTA
+DB_HOST=HOST_INTERNO_DE_MYSQL_EN_DOKPLOY
+DB_PORT=3306
+DB_USER=USUARIO_INTERNO_DE_MYSQL
+DB_PASSWORD=PASSWORD_INTERNO_DE_MYSQL
+DB_NAME=NOMBRE_DE_LA_BASE_EXISTENTE
 
 JWT_SECRET=SECRETO_ALEATORIO_DE_64_CARACTERES_O_MAS
 ADMIN_EMAIL=admin@undc.edu.pe
@@ -100,7 +102,17 @@ Genera valores aleatorios en el VPS con:
 openssl rand -base64 48
 ```
 
-Ejecuta el comando tres veces y utiliza resultados diferentes para `DB_PASSWORD`, `MYSQL_ROOT_PASSWORD` y `JWT_SECRET`. No copies `.env.production.example` como configuración real sin reemplazar sus valores.
+Usa el comando para generar `JWT_SECRET` y una contraseña administrativa. Para las variables `DB_*`, copia exactamente las **Internal Credentials** que aparecen en el servicio MySQL de Dokploy. No uses el host, puerto o URL externos.
+
+### Encontrar los datos internos de MySQL
+
+1. Abre el servicio MySQL existente en Dokploy.
+2. Entra a **Connection**.
+3. Busca **Internal Credentials**.
+4. Copia `Internal Host`, `Internal Port`, `User`, `Password` y `Database Name`.
+5. Coloca esos valores en `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` y `DB_NAME`.
+
+El backend está conectado a la red externa `dokploy-network`, utilizada para comunicarse con servicios de base de datos internos de Dokploy. No actives un puerto externo de MySQL para esta conexión.
 
 ## 7. Configurar el dominio y HTTPS
 
@@ -113,18 +125,18 @@ En la sección **Domains** del Compose:
 5. Activa HTTPS y solicita el certificado de Let's Encrypt.
 6. Habilita la redirección de HTTP a HTTPS.
 
-No publiques directamente los servicios `backend` ni `mysql`. La API se accede a través de `https://inscripciones.undc.edu.pe/api` y Nginx la reenvía dentro de Docker.
+No publiques directamente el servicio `backend` ni habilites acceso externo para MySQL. La API se accede a través de `https://inscripciones.undc.edu.pe/api` y Nginx la reenvía dentro de Docker.
 
 ## 8. Primer despliegue
 
 Presiona **Deploy**. El orden esperado es:
 
-1. MySQL inicia y pasa su health check.
-2. El backend ejecuta `pnpm db:setup`, crea las tablas y el administrador inicial.
+1. El backend conecta con el MySQL existente.
+2. El backend ejecuta `pnpm db:setup`, crea las tablas y el administrador inicial dentro de `DB_NAME`.
 3. Express pasa su health check.
 4. Nginx inicia el frontend.
 
-Revisa los logs de los tres servicios. Después prueba:
+Revisa los logs de `backend` y `frontend`. Después prueba:
 
 ```text
 https://inscripciones.undc.edu.pe/
@@ -157,10 +169,10 @@ No cambies el volumen por una carpeta absoluta del VPS dentro del Compose. Dokpl
 
 ## 10. Copias de seguridad
 
-Configura dos trabajos en **Volume Backups** de Dokploy:
+Configura las copias por separado:
 
-- Volumen asociado a `curso_mysql_data`.
 - Volumen asociado a `curso_uploads`.
+- Copia de seguridad del servicio MySQL existente desde su propia sección **Backups**.
 
 Frecuencia sugerida:
 
@@ -169,15 +181,7 @@ Frecuencia sugerida:
 - Retención: mínimo 14 o 30 días.
 - Destino: almacenamiento S3 compatible fuera del mismo VPS.
 
-Además del volumen MySQL, es recomendable generar un respaldo lógico periódico:
-
-```bash
-docker compose exec -T mysql mysqldump \
-  -u root -p"$MYSQL_ROOT_PASSWORD" \
-  --single-transaction --routines --triggers curso_investigacion > curso_investigacion.sql
-```
-
-La copia lógica y la carpeta de PDFs corresponden al mismo estado funcional. Conserva ambos respaldos.
+La copia de MySQL y la carpeta de PDFs corresponden al mismo estado funcional. Conserva ambos respaldos y programa una restauración de prueba.
 
 ## 11. Actualizaciones posteriores
 
@@ -189,7 +193,7 @@ git commit -m "Descripción del cambio"
 git push origin main
 ```
 
-Si Auto Deploy está habilitado, Dokploy construirá nuevas imágenes. Los volúmenes de MySQL y PDFs permanecerán intactos.
+Si Auto Deploy está habilitado, Dokploy construirá nuevas imágenes. El MySQL existente no se reemplazará y el volumen de PDFs permanecerá intacto.
 
 ## 12. Comprobaciones de seguridad
 

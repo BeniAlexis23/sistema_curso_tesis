@@ -1,23 +1,4 @@
 services:
-  mysql:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: curso_investigacion
-      MYSQL_USER: ${DB_USER:-curso_app}
-      MYSQL_PASSWORD: ${DB_PASSWORD:?Configura DB_PASSWORD en Dokploy}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configura MYSQL_ROOT_PASSWORD en Dokploy}
-    volumes:
-      - curso_mysql_data:/var/lib/mysql
-    networks:
-      - private
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
   backend:
     build:
       context: .
@@ -27,11 +8,11 @@ services:
       NODE_ENV: production
       PORT: 5000
       FRONTEND_URL: ${APP_URL:?Configura APP_URL en Dokploy}
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: ${DB_USER:-curso_app}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: curso_investigacion
+      DB_HOST: ${DB_HOST:?Usa el Internal Host de MySQL en Dokploy}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:?Usa el Internal User de MySQL en Dokploy}
+      DB_PASSWORD: ${DB_PASSWORD:?Usa el Internal Password de MySQL en Dokploy}
+      DB_NAME: ${DB_NAME:?Usa el Database Name de MySQL en Dokploy}
       JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en Dokploy}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@undc.edu.pe}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Configura ADMIN_PASSWORD en Dokploy}
@@ -47,9 +28,7 @@ services:
       - "5000"
     networks:
       - private
-    depends_on:
-      mysql:
-        condition: service_healthy
+      - dokploy-network
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
@@ -66,6 +45,7 @@ services:
       - "80"
     networks:
       - private
+      - dokploy-network
     depends_on:
       backend:
         condition: service_healthy
@@ -73,7 +53,8 @@ services:
 networks:
   private:
     driver: bridge
+  dokploy-network:
+    external: true
 
 volumes:
-  curso_mysql_data:
   curso_uploads:
