@@ -2,7 +2,7 @@
 
 ## 1. Arquitectura de producción
 
-El archivo `compose.yaml` levanta dos servicios y se conecta al MySQL que ya existe en Dokploy:
+El archivo `compose.yml` levanta dos servicios y se conecta al MySQL que ya existe en Dokploy:
 
 - `frontend`: compila React y lo sirve mediante Nginx en el puerto interno 80.
 - `backend`: ejecuta Node.js y Express en el puerto interno 5000.
@@ -68,7 +68,7 @@ Espera a que el dominio resuelva hacia el VPS antes de solicitar el certificado 
 3. Dentro del entorno `Production`, crea un servicio de tipo **Docker Compose**.
 4. Selecciona GitHub como proveedor.
 5. Elige el repositorio y la rama `main`.
-6. Indica `compose.yaml` como ruta del archivo Compose.
+6. Indica `./compose.yml` como ruta del archivo Compose.
 7. Activa Auto Deploy si quieres desplegar automáticamente cada `git push`.
 
 ## 6. Variables de entorno en Dokploy
