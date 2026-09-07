@@ -1,0 +1,11 @@
+.git
+.gitignore
+**/node_modules
+**/dist
+backend/.env
+backend/uploads
+*.log
+.DS_Store
+.vscode
+.idea
+.pnpm-store

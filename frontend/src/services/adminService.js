@@ -1,0 +1,52 @@
+const API_URL = import.meta.env.VITE_API_URL || '/api'
+const TOKEN_KEY = 'undc_admin_token'
+
+export const getAdminToken = () => sessionStorage.getItem(TOKEN_KEY)
+export const saveAdminToken = (token) => sessionStorage.setItem(TOKEN_KEY, token)
+export const clearAdminToken = () => sessionStorage.removeItem(TOKEN_KEY)
+
+async function request(path, options = {}) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}`, ...options.headers },
+  })
+  const result = await response.json()
+  if (!response.ok) throw Object.assign(new Error(result.message || 'Ocurrió un error'), { status: response.status })
+  return result
+}
+
+export async function loginAdmin(credentials) {
+  const response = await fetch(`${API_URL}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials) })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.message || 'No se pudo iniciar sesión')
+  return result
+}
+
+export const listRegistrations = (status = '') => request(`/admin/registrations${status ? `?status=${status}` : ''}`)
+export const getRegistration = (id) => request(`/admin/registrations/${id}`)
+export const updateRegistrationStatus = (id, status, observation) => request(`/admin/registrations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, observation }) })
+
+export async function downloadRegistrationDocument(registrationId, document) {
+  const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/documents/${document.id}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })
+  if (!response.ok) throw new Error('No se pudo descargar el documento')
+  const url = URL.createObjectURL(await response.blob())
+  const link = window.document.createElement('a')
+  link.href = url; link.download = document.original_name; link.click(); URL.revokeObjectURL(url)
+}
+
+export async function getDocumentPreview(registrationId, documentId) {
+  const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/documents/${documentId}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })
+  if (!response.ok) throw new Error('No se pudo cargar la vista previa')
+  return URL.createObjectURL(await response.blob())
+}
+
+export async function replaceRegistrationDocument(registrationId, documentId, file) {
+  const formData = new FormData()
+  formData.append('document', file)
+  const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/documents/${documentId}`, {
+    method: 'PUT', headers: { Authorization: `Bearer ${getAdminToken()}` }, body: formData,
+  })
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.message || 'No se pudo reemplazar el documento')
+  return result
+}
