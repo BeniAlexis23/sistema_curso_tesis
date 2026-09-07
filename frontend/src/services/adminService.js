@@ -5,19 +5,26 @@ export const getAdminToken = () => sessionStorage.getItem(TOKEN_KEY)
 export const saveAdminToken = (token) => sessionStorage.setItem(TOKEN_KEY, token)
 export const clearAdminToken = () => sessionStorage.removeItem(TOKEN_KEY)
 
+async function readResponse(response) {
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) return response.json()
+  if (!response.ok) throw Object.assign(new Error('El servidor no está disponible. Inténtalo nuevamente en unos momentos.'), { status: response.status })
+  return null
+}
+
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}`, ...options.headers },
   })
-  const result = await response.json()
+  const result = await readResponse(response)
   if (!response.ok) throw Object.assign(new Error(result.message || 'Ocurrió un error'), { status: response.status })
   return result
 }
 
 export async function loginAdmin(credentials) {
   const response = await fetch(`${API_URL}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials) })
-  const result = await response.json()
+  const result = await readResponse(response)
   if (!response.ok) throw new Error(result.message || 'No se pudo iniciar sesión')
   return result
 }
