@@ -36,6 +36,17 @@ export const deleteRegistration = id => request(`/admin/registrations/${id}`, { 
 export const updateRegistrationStatus = (id, status, observation) => request(`/admin/registrations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, observation }) })
 export const listPayments = () => request('/admin/payments')
 export const updatePayment = (id, data) => request(`/admin/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const getReport = () => request('/admin/reports')
+
+export async function downloadReport(format) {
+  const response = await fetch(`${API_URL}/admin/reports/${format}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })
+  if (!response.ok) throw new Error('No se pudo generar el reporte')
+  const disposition = response.headers.get('content-disposition') || ''
+  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] || `reporte-inscripciones.${format === 'excel' ? 'xlsx' : 'pdf'}`
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url)
+}
 
 export async function downloadRegistrationDocument(registrationId, document) {
   const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/documents/${document.id}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })

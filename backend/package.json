@@ -4,6 +4,22 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.1.2",
-  "scripts": { "dev": "node --watch src/server.js", "start": "node src/server.js", "db:setup": "node database/setup.js" },
-  "dependencies": { "bcryptjs": "latest", "cors": "latest", "dotenv": "latest", "express": "latest", "helmet": "latest", "jsonwebtoken": "latest", "multer": "latest", "mysql2": "latest", "nodemailer": "latest" }
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "db:setup": "node database/setup.js"
+  },
+  "dependencies": {
+    "bcryptjs": "latest",
+    "cors": "latest",
+    "dotenv": "latest",
+    "exceljs": "^4.4.0",
+    "express": "latest",
+    "helmet": "latest",
+    "jsonwebtoken": "latest",
+    "multer": "latest",
+    "mysql2": "latest",
+    "nodemailer": "latest",
+    "pdfkit": "^0.20.2"
+  }
 }

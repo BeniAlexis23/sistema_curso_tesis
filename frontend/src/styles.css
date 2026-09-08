@@ -271,6 +271,18 @@ footer { background:#06172f; color:#8fa0b6; display:flex; justify-content:space-
 .swal-admin-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:left; }
 .swal-admin-form label { color:#34485f; font-size:12px; font-weight:700; }
 .swal-admin-form .swal2-input,.swal-admin-form .swal2-select { width:100%; height:44px; margin:6px 0 0; padding:0 12px; border:1px solid #d8e0e8; border-radius:8px; font-size:14px; box-shadow:none; }
+.report-export { min-height:44px; border:0; border-radius:8px; padding:0 15px; display:inline-flex; align-items:center; justify-content:center; gap:9px; color:#fff; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 7px 16px #102b4518; }
+.report-export-pdf { background:#b4232d; }
+.report-export-excel { background:#16835a; }
+.report-export:disabled { opacity:.65; cursor:wait; }
+.report-table { width:100%; min-width:960px; border-collapse:collapse; text-align:left; }
+.report-table th { padding:13px 15px; background:#f7f9fb; color:#718096; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+.report-table td { padding:15px; border-top:1px solid #edf0f3; color:#42566e; font-size:13px; }
+.report-table td b,.report-table td small { display:block; }
+.report-table td b { color:#17314f; }
+.report-table td small { max-width:240px; margin-top:4px; overflow:hidden; color:#8995a5; text-overflow:ellipsis; white-space:nowrap; }
+.report-table .paid-value { color:#13784c; font-weight:800; }
+.report-table .pending-value { color:#9a6510; font-weight:800; }
 .review-documents { display:flex; flex-direction:column; gap:9px; }
 .review-documents button { display:flex; align-items:center; gap:11px; width:100%; padding:13px; border:1px solid #dfe5eb; border-radius:8px; background:#fff; color:#158a95; cursor:pointer; text-align:left; }
 .review-documents span { flex:1; width:0; min-width:0; display:flex; flex-direction:column; overflow:hidden; }.review-documents b { color:#2b4159; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.review-documents small { display:block; width:100%; color:#8b97a6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
