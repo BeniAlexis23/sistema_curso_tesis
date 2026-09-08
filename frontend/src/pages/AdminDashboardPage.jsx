@@ -1,11 +1,11 @@
-import { CheckCircle2, CreditCard, Download, Eye, FileText, RefreshCw, Search, UserRoundCheck, X } from 'lucide-react'
+import { CheckCircle2, CreditCard, Download, Edit3, Eye, FileText, RefreshCw, Search, Trash2, UserRoundCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import AdminLayout from '../components/AdminLayout'
 import {
-  clearAdminToken, downloadRegistrationDocument, getDocumentPreview,
-  getRegistration, listRegistrations, replaceRegistrationDocument, updateRegistrationStatus,
+  clearAdminToken, deleteRegistration, downloadRegistrationDocument, getDocumentPreview,
+  getRegistration, listRegistrations, replaceRegistrationDocument, updateRegistration, updateRegistrationStatus,
 } from '../services/adminService'
 
 const labels = { pending: 'Pendiente', approved: 'Aprobado', observed: 'Observado', rejected: 'Rechazado' }
@@ -86,6 +86,45 @@ export default function AdminDashboardPage() {
     } catch (error) { Swal.fire('Error', error.message, 'error') }
   }
 
+  const editSelected = async () => {
+    const result = await Swal.fire({
+      title: 'Editar inscripción',
+      html: '<div class="swal-admin-form"><label>Nombres<input id="edit-firstNames" class="swal2-input"></label><label>Apellidos<input id="edit-lastNames" class="swal2-input"></label><label>DNI<input id="edit-dni" class="swal2-input" maxlength="8"></label><label>Correo<input id="edit-email" type="email" class="swal2-input"></label><label>Celular<input id="edit-phone" class="swal2-input"></label><label>Modalidad de pago<select id="edit-paymentMode" class="swal2-select"><option value="option1">Opción 1</option><option value="option2">Opción 2</option></select></label></div>',
+      didOpen: () => {
+        document.getElementById('edit-firstNames').value = selected.first_names
+        document.getElementById('edit-lastNames').value = selected.last_names
+        document.getElementById('edit-dni').value = selected.dni
+        document.getElementById('edit-email').value = selected.email
+        document.getElementById('edit-phone').value = selected.phone
+        document.getElementById('edit-paymentMode').value = selected.payment_mode
+      },
+      preConfirm: () => {
+        const data = Object.fromEntries(['firstNames', 'lastNames', 'dni', 'email', 'phone', 'paymentMode'].map(name => [name, document.getElementById(`edit-${name}`).value.trim()]))
+        if (!data.firstNames || !data.lastNames || !/^\d{8}$/.test(data.dni) || !/^\S+@\S+\.\S+$/.test(data.email) || !data.phone) return Swal.showValidationMessage('Completa correctamente todos los datos')
+        return data
+      },
+      showCancelButton: true, confirmButtonText: 'Guardar cambios', cancelButtonText: 'Cancelar', confirmButtonColor: '#0b4d96', width: 650,
+    })
+    if (!result.isConfirmed) return
+    try {
+      await updateRegistration(selected.id, result.value)
+      setSelected((await getRegistration(selected.id)).data)
+      await load()
+      Swal.fire({ title: 'Datos actualizados', icon: 'success', timer: 1300, showConfirmButton: false })
+    } catch (error) { Swal.fire('No se pudo actualizar', error.message, 'error') }
+  }
+
+  const removeSelected = async () => {
+    const result = await Swal.fire({ title: '¿Eliminar esta inscripción?', text: 'Se eliminarán también sus documentos y todo el seguimiento de pagos. Esta acción no se puede deshacer.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#b4232d' })
+    if (!result.isConfirmed) return
+    try {
+      await deleteRegistration(selected.id)
+      setSelected(null)
+      await load()
+      Swal.fire({ title: 'Inscripción eliminada', icon: 'success', timer: 1400, showConfirmButton: false })
+    } catch (error) { Swal.fire('No se pudo eliminar', error.message, 'error') }
+  }
+
   return <AdminLayout>
     <main className="admin-main">
       <div className="admin-title"><div><span className="section-kicker">ADMISIONES · 2026</span><h1>Inscripciones</h1><p>Revisa y valida las solicitudes recibidas.</p></div><div className="flex flex-wrap justify-end gap-2"><Link className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-undc-blue px-4 text-sm font-bold text-white" to="/admin/pagos"><CreditCard size={17} /> Gestionar pagos</Link><button onClick={load}><RefreshCw size={17} /> Actualizar</button></div></div>
@@ -100,7 +139,7 @@ export default function AdminDashboardPage() {
       <aside className="review-panel">
         <header><div><span className={`status ${selected.status}`}>{labels[selected.status]}</span><h2>{selected.first_names} {selected.last_names}</h2><p>DNI {selected.dni}</p></div><button onClick={() => setSelected(null)}><X /></button></header>
         <div className="review-body">
-          <section><h3>Datos del participante</h3><p><span>Correo</span><b>{selected.email}</b></p><p><span>Celular</span><b>{selected.phone}</b></p><p><span>Modalidad de pago</span><b>{selected.payment_mode === 'option2' ? 'Opción 2' : 'Opción 1'}</b></p></section>
+          <section><h3>Datos del participante</h3><p><span>Correo</span><b>{selected.email}</b></p><p><span>Celular</span><b>{selected.phone}</b></p><p><span>Modalidad de pago</span><b>{selected.payment_mode === 'option2' ? 'Opción 2' : 'Opción 1'}</b></p><div className="admin-record-actions"><button onClick={editSelected}><Edit3 size={16} /> Editar datos</button><button className="danger" onClick={removeSelected}><Trash2 size={16} /> Eliminar inscripción</button></div></section>
           <section><h3>Documentos presentados</h3><p className="review-help">Visualiza cada PDF, reemplázalo si recibiste una corrección por WhatsApp y marca la casilla cuando sea correcto.</p><div className="review-documents">{selected.documents.map(doc => <div className="review-document" key={doc.id}><button className="document-preview-button" onClick={() => openPreview(doc)}><FileText size={19} /><span><b>{documentLabels[doc.document_type]}</b><small>{doc.original_name}</small></span><Eye size={17} /></button><button className="document-download" title="Descargar" onClick={() => downloadRegistrationDocument(selected.id, doc)}><Download size={17} /></button><label className="document-replace"><input type="file" accept="application/pdf,.pdf" onChange={event => { replaceDocument(doc, event.target.files[0]); event.target.value = '' }} /><span>Reemplazar PDF</span></label><label className="document-check"><input type="checkbox" checked={Boolean(checked[doc.id])} onChange={e => setChecked({ ...checked, [doc.id]: e.target.checked })} /><span>Correcto</span></label></div>)}</div></section>
         </div>
         <footer><span>Actualizar resultado de revisión</span><div><button className="observe" onClick={() => changeStatus('observed')}>Observar</button><button className="reject" onClick={() => changeStatus('rejected')}>Rechazar</button><button className="approve" disabled={!allChecked} title={!allChecked ? 'Verifica los cuatro documentos para aprobar' : ''} onClick={() => changeStatus('approved')}>Aprobar</button></div>{!allChecked && <small>Marca los 4 documentos como correctos para habilitar la aprobación.</small>}</footer>

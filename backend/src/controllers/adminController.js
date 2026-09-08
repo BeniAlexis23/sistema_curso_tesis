@@ -78,6 +78,22 @@ export async function updateRegistration(req, res, next) {
   } finally { connection.release() }
 }
 
+export async function deleteRegistration(req, res, next) {
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
+    const [documents] = await connection.query('SELECT stored_name FROM registration_documents WHERE registration_id = ?', [req.params.id])
+    const [result] = await connection.query('DELETE FROM registrations WHERE id = ?', [req.params.id])
+    if (!result.affectedRows) { await connection.rollback(); return res.status(404).json({ message: 'Inscripción no encontrada' }) }
+    await connection.commit()
+    await Promise.all(documents.map(document => fs.unlink(path.resolve('uploads', document.stored_name)).catch(() => {})))
+    res.json({ message: 'Inscripción eliminada correctamente' })
+  } catch (error) {
+    await connection.rollback()
+    next(error)
+  } finally { connection.release() }
+}
+
 export async function updateStatus(req, res, next) {
   try {
     const { status, observation } = req.body
