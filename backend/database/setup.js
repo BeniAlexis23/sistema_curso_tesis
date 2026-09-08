@@ -37,16 +37,18 @@ try {
   await connection.query(schemaSql)
   const [registrationColumns] = await connection.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = 'curso_investigacion' AND TABLE_NAME = 'registrations'`,
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'registrations'`,
+    [databaseName],
   )
   const columnNames = new Set(registrationColumns.map((column) => column.COLUMN_NAME))
-  if (!columnNames.has('observation_text')) await connection.query('ALTER TABLE curso_investigacion.registrations ADD COLUMN observation_text TEXT NULL')
-  if (!columnNames.has('correction_token_hash')) await connection.query('ALTER TABLE curso_investigacion.registrations ADD COLUMN correction_token_hash CHAR(64) NULL UNIQUE')
+  if (!columnNames.has('observation_text')) await connection.query(`ALTER TABLE \`${databaseName}\`.registrations ADD COLUMN observation_text TEXT NULL`)
+  if (!columnNames.has('correction_token_hash')) await connection.query(`ALTER TABLE \`${databaseName}\`.registrations ADD COLUMN correction_token_hash CHAR(64) NULL UNIQUE`)
+  if (!columnNames.has('payment_mode')) await connection.query(`ALTER TABLE \`${databaseName}\`.registrations ADD COLUMN payment_mode ENUM('option1', 'option2') NOT NULL DEFAULT 'option1' AFTER phone`)
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@undc.edu.pe').toLowerCase()
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin12345!'
   const passwordHash = await bcrypt.hash(adminPassword, 12)
   await connection.query(
-    `INSERT INTO curso_investigacion.administrators (name, email, password_hash)
+    `INSERT INTO \`${databaseName}\`.administrators (name, email, password_hash)
      VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), password_hash = VALUES(password_hash)`,
     ['Administrador UNDC', adminEmail, passwordHash],
   )

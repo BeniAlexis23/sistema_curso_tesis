@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   dni CHAR(8) NOT NULL,
   email VARCHAR(180) NOT NULL,
   phone VARCHAR(20) NOT NULL,
+  payment_mode ENUM('option1', 'option2') NOT NULL,
   status ENUM('pending', 'approved', 'observed', 'rejected') NOT NULL DEFAULT 'pending',
   observation_text TEXT NULL,
   correction_token_hash CHAR(64) NULL UNIQUE,

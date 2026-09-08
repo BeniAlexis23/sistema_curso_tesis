@@ -4,19 +4,9 @@ export default function PaymentCard({ course }) {
   const [nationalBank, interbank] = course.banks;
   return (
     <div className="payment-card">
-      <div className="prices">
-        <div>
-          <small>INSCRIPCIÓN</small>
-          <strong>
-            <sup>S/</sup> {course.registration_fee}
-          </strong>
-        </div>
-        <div>
-          <small>I MÓDULO</small>
-          <strong>
-            <sup>S/</sup> {course.first_module_fee}
-          </strong>
-        </div>
+      <div className="flex items-center justify-between bg-undc-navy px-5 py-5 text-white sm:px-6">
+        <span className="text-[11px] font-bold tracking-[0.16em] text-slate-300">INVERSIÓN TOTAL</span>
+        <strong className="font-display text-2xl font-extrabold sm:text-3xl"><small className="mr-1 text-xs font-bold text-undc-cyan">S/</small>4,000.00</strong>
       </div>
       <div className="banks">
         <div>

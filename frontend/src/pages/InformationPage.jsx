@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import CourseSummary from "../components/CourseSummary";
 import PaymentCard from "../components/PaymentCard";
+import PaymentOptions from "../components/PaymentOptions";
 import Requirement from "../components/Requirement";
 import Shell from "../components/Shell";
 import { useCourse } from "../hooks/useCourse";
@@ -85,13 +86,14 @@ export default function InformationPage() {
             <div className="section-title">
               <span>02</span>
               <div>
-                <h2>Inversión - s/4000.00</h2>
+                <h2>Inversión total</h2>
                 <p>Pagos a nombre de la Universidad Nacional de Cañete.</p>
               </div>
             </div>
             <PaymentCard course={course} />
           </aside>
         </section>
+        <PaymentOptions />
         <div className="continue-bar">
           <div>
             <ShieldCheck size={21} />

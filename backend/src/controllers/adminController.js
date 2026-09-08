@@ -25,7 +25,7 @@ export async function listRegistrations(req, res, next) {
     let where = ''
     if (status && ['pending', 'approved', 'observed', 'rejected'].includes(status)) { where = 'WHERE r.status = ?'; params.push(status) }
     const [rows] = await pool.query(
-      `SELECT r.id, r.first_names, r.last_names, r.dni, r.email, r.phone, r.status, r.created_at,
+      `SELECT r.id, r.first_names, r.last_names, r.dni, r.email, r.phone, r.payment_mode, r.status, r.created_at,
               COUNT(d.id) AS document_count
        FROM registrations r LEFT JOIN registration_documents d ON d.registration_id = r.id
        ${where} GROUP BY r.id ORDER BY r.created_at DESC`, params,
@@ -36,7 +36,7 @@ export async function listRegistrations(req, res, next) {
 
 export async function getRegistration(req, res, next) {
   try {
-    const [rows] = await pool.query('SELECT id, first_names, last_names, dni, email, phone, status, created_at FROM registrations WHERE id = ?', [req.params.id])
+    const [rows] = await pool.query('SELECT id, first_names, last_names, dni, email, phone, payment_mode, status, created_at FROM registrations WHERE id = ?', [req.params.id])
     if (!rows.length) return res.status(404).json({ message: 'Inscripción no encontrada' })
     const [documents] = await pool.query('SELECT id, document_type, original_name, uploaded_at FROM registration_documents WHERE registration_id = ? ORDER BY id', [req.params.id])
     res.json({ data: { ...rows[0], documents } })
@@ -55,7 +55,7 @@ export async function updateStatus(req, res, next) {
     if (!result.affectedRows) return res.status(404).json({ message: 'Inscripción no encontrada' })
     let email = { sent: false, reason: 'NOT_REQUIRED' }
     if (status === 'approved') {
-      const [participants] = await pool.query('SELECT first_names, last_names, dni, email, phone FROM registrations WHERE id = ?', [req.params.id])
+      const [participants] = await pool.query('SELECT first_names, last_names, dni, email, phone, payment_mode FROM registrations WHERE id = ?', [req.params.id])
       email = await sendApprovalEmail(participants[0])
     }
     res.json({ message: 'Estado actualizado correctamente', data: { email } })

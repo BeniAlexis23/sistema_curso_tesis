@@ -8,10 +8,10 @@ async function removeUploadedFiles(files = {}) {
 }
 
 export async function createRegistration(req, res, next) {
-  const { firstNames, lastNames, dni, email, phone } = req.body
+  const { firstNames, lastNames, dni, email, phone, paymentMode } = req.body
   const fields = [firstNames, lastNames, dni, email, phone]
 
-  if (fields.some((value) => !value?.trim()) || !/^\d{8}$/.test(dni) || !/^\S+@\S+\.\S+$/.test(email)) {
+  if (fields.some((value) => !value?.trim()) || !/^\d{8}$/.test(dni) || !/^\S+@\S+\.\S+$/.test(email) || !['option1', 'option2'].includes(paymentMode)) {
     await removeUploadedFiles(req.files)
     return res.status(400).json({ message: 'Revisa los datos personales ingresados' })
   }
@@ -33,9 +33,9 @@ export async function createRegistration(req, res, next) {
     if (duplicates.length) throw Object.assign(new Error('Ya existe una inscripción con este DNI o correo'), { status: 409 })
 
     const [result] = await connection.query(
-      `INSERT INTO registrations (course_id, first_names, last_names, dni, email, phone)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [courses[0].id, firstNames.trim(), lastNames.trim(), dni, email.trim().toLowerCase(), phone.trim()],
+      `INSERT INTO registrations (course_id, first_names, last_names, dni, email, phone, payment_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [courses[0].id, firstNames.trim(), lastNames.trim(), dni, email.trim().toLowerCase(), phone.trim(), paymentMode],
     )
 
     const documents = requiredFiles.map((type) => [result.insertId, type, req.files[type][0].filename, req.files[type][0].originalname])
