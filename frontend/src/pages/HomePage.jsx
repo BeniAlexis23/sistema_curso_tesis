@@ -12,7 +12,7 @@ import Shell from "../components/Shell";
 export default function HomePage() {
   return (
     <Shell>
-      <main className="hero -mt-25">
+      <main className="hero">
         <div className="hero-glow glow-one" />
         <div className="hero-glow glow-two" />
         <section className="hero-copy">

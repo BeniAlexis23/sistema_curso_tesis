@@ -5,6 +5,7 @@ import RegistrationPage from "./pages/RegistrationPage";
 import RegistrationCompletePage from "./pages/RegistrationCompletePage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
 export default function App() {
@@ -23,6 +24,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute>
             <AdminDashboardPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/pagos"
+        element={
+          <ProtectedAdminRoute>
+            <AdminPaymentsPage />
           </ProtectedAdminRoute>
         }
       />

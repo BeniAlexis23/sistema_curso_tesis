@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import { pool } from '../config/database.js'
+import { createPaymentSchedule } from '../services/paymentSchedule.js'
 
 const requiredFiles = ['bachelorDiploma', 'suneduRegistration', 'futRequest', 'paymentVoucher']
 
@@ -43,6 +44,7 @@ export async function createRegistration(req, res, next) {
       'INSERT INTO registration_documents (registration_id, document_type, stored_name, original_name) VALUES ?',
       [documents],
     )
+    await createPaymentSchedule(connection, result.insertId, paymentMode)
     await connection.commit()
     res.status(201).json({ message: 'Inscripción registrada correctamente', data: { registrationId: result.insertId } })
   } catch (error) {

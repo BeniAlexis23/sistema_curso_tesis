@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { pool } from '../config/database.js'
 import { sendApprovalEmail } from '../services/emailService.js'
+import { replacePaymentSchedule } from '../services/paymentSchedule.js'
 
 export async function login(req, res, next) {
   try {
@@ -41,6 +42,40 @@ export async function getRegistration(req, res, next) {
     const [documents] = await pool.query('SELECT id, document_type, original_name, uploaded_at FROM registration_documents WHERE registration_id = ? ORDER BY id', [req.params.id])
     res.json({ data: { ...rows[0], documents } })
   } catch (error) { next(error) }
+}
+
+export async function updateRegistration(req, res, next) {
+  const { firstNames, lastNames, dni, email, phone, paymentMode } = req.body
+  if ([firstNames, lastNames, dni, email, phone].some(value => !value?.trim()) || !/^\d{8}$/.test(dni) || !/^\S+@\S+\.\S+$/.test(email) || !['option1', 'option2'].includes(paymentMode)) {
+    return res.status(400).json({ message: 'Revisa los datos ingresados' })
+  }
+  const connection = await pool.getConnection()
+  try {
+    await connection.beginTransaction()
+    const [current] = await connection.query('SELECT payment_mode FROM registrations WHERE id = ? FOR UPDATE', [req.params.id])
+    if (!current.length) { await connection.rollback(); return res.status(404).json({ message: 'Inscripción no encontrada' }) }
+    if (current[0].payment_mode !== paymentMode) {
+      const [[{ paidCount }]] = await connection.query(
+        `SELECT COUNT(*) AS paidCount FROM registration_payments WHERE registration_id = ? AND status = 'paid'`,
+        [req.params.id],
+      )
+      if (Number(paidCount) > 0) {
+        await connection.rollback()
+        return res.status(409).json({ message: 'No se puede cambiar la modalidad porque ya existen pagos registrados' })
+      }
+      await replacePaymentSchedule(connection, req.params.id, paymentMode)
+    }
+    await connection.query(
+      `UPDATE registrations SET first_names = ?, last_names = ?, dni = ?, email = ?, phone = ?, payment_mode = ? WHERE id = ?`,
+      [firstNames.trim(), lastNames.trim(), dni, email.trim().toLowerCase(), phone.trim(), paymentMode, req.params.id],
+    )
+    await connection.commit()
+    res.json({ message: 'Datos actualizados correctamente' })
+  } catch (error) {
+    await connection.rollback()
+    if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'El DNI o correo ya pertenece a otra inscripción' })
+    next(error)
+  } finally { connection.release() }
 }
 
 export async function updateStatus(req, res, next) {

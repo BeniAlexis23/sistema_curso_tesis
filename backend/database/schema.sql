@@ -55,6 +55,22 @@ CREATE TABLE IF NOT EXISTS registration_documents (
   UNIQUE KEY uq_registration_document (registration_id, document_type)
 );
 
+CREATE TABLE IF NOT EXISTS registration_payments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  registration_id INT UNSIGNED NOT NULL,
+  installment_order TINYINT UNSIGNED NOT NULL,
+  concept VARCHAR(120) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  due_date DATE NOT NULL,
+  status ENUM('pending', 'paid') NOT NULL DEFAULT 'pending',
+  paid_at DATE NULL,
+  notes VARCHAR(500) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_payment_registration FOREIGN KEY (registration_id) REFERENCES registrations(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_registration_installment (registration_id, installment_order)
+);
+
 CREATE TABLE IF NOT EXISTS administrators (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,

@@ -1,8 +1,8 @@
-import { CheckCircle2, Download, Eye, FileText, LogOut, RefreshCw, Search, UserRoundCheck, X } from 'lucide-react'
+import { CheckCircle2, CreditCard, Download, Eye, FileText, RefreshCw, Search, UserRoundCheck, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
-import Brand from '../components/Brand'
+import AdminLayout from '../components/AdminLayout'
 import {
   clearAdminToken, downloadRegistrationDocument, getDocumentPreview,
   getRegistration, listRegistrations, replaceRegistrationDocument, updateRegistrationStatus,
@@ -86,12 +86,9 @@ export default function AdminDashboardPage() {
     } catch (error) { Swal.fire('Error', error.message, 'error') }
   }
 
-  const logout = () => { clearAdminToken(); navigate('/admin/login', { replace: true }) }
-
-  return <div className="admin-shell">
-    <header className="admin-header"><Brand /><div><span>Panel administrativo</span><button onClick={logout}><LogOut size={16} /> Cerrar sesión</button></div></header>
+  return <AdminLayout>
     <main className="admin-main">
-      <div className="admin-title"><div><span className="section-kicker">ADMISIONES · 2026</span><h1>Inscripciones</h1><p>Revisa y valida las solicitudes recibidas.</p></div><button onClick={load}><RefreshCw size={17} /> Actualizar</button></div>
+      <div className="admin-title"><div><span className="section-kicker">ADMISIONES · 2026</span><h1>Inscripciones</h1><p>Revisa y valida las solicitudes recibidas.</p></div><div className="flex flex-wrap justify-end gap-2"><Link className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-undc-blue px-4 text-sm font-bold text-white" to="/admin/pagos"><CreditCard size={17} /> Gestionar pagos</Link><button onClick={load}><RefreshCw size={17} /> Actualizar</button></div></div>
       <section className="admin-stats"><div><FileText /><span><small>TOTAL</small><b>{items.length}</b></span></div><div><UserRoundCheck /><span><small>PENDIENTES</small><b>{items.filter(i => i.status === 'pending').length}</b></span></div><div><CheckCircle2 /><span><small>APROBADAS</small><b>{items.filter(i => i.status === 'approved').length}</b></span></div></section>
       <section className="admin-content">
         <div className="admin-toolbar"><label><Search size={17} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre, DNI o correo" /></label><select value={filter} onChange={e => setFilter(e.target.value)}><option value="">Todos los estados</option><option value="pending">Pendientes</option><option value="approved">Aprobados</option><option value="observed">Observados</option><option value="rejected">Rechazados</option></select></div>
@@ -111,5 +108,5 @@ export default function AdminDashboardPage() {
     </div>}
 
     {preview && <div className="preview-overlay"><section className="pdf-preview"><header><div><FileText size={19} /><span><b>Vista previa</b><small>{preview.name}</small></span></div><button onClick={() => setPreview(null)}><X /></button></header><iframe src={preview.url} title={`Vista previa de ${preview.name}`} /></section></div>}
-  </div>
+  </AdminLayout>
 }

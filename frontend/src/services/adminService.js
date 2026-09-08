@@ -31,7 +31,10 @@ export async function loginAdmin(credentials) {
 
 export const listRegistrations = (status = '') => request(`/admin/registrations${status ? `?status=${status}` : ''}`)
 export const getRegistration = (id) => request(`/admin/registrations/${id}`)
+export const updateRegistration = (id, data) => request(`/admin/registrations/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const updateRegistrationStatus = (id, status, observation) => request(`/admin/registrations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, observation }) })
+export const listPayments = () => request('/admin/payments')
+export const updatePayment = (id, data) => request(`/admin/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 
 export async function downloadRegistrationDocument(registrationId, document) {
   const response = await fetch(`${API_URL}/admin/registrations/${registrationId}/documents/${document.id}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })
