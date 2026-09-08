@@ -119,24 +119,25 @@ footer { background:#06172f; color:#8fa0b6; display:flex; justify-content:space-
 .placeholder p { color:#708095; line-height:1.7; }
 .placeholder a { display:inline-flex; gap:8px; align-items:center; color:#0b4e98; font-weight:700; margin-top:18px; }
 
-.registration-page { width:min(1050px,90vw); margin:0 auto; padding:32px 0 60px; flex:1; }
+.registration-page { width:min(1050px,90vw); min-width:0; margin:0 auto; padding:32px 0 60px; flex:1; }
 .registration-page > .back { display:inline-flex; }
 .form-heading { margin:25px 0 30px; }
 .form-heading h1 { margin:7px 0 5px; font:800 clamp(32px,4vw,45px) 'Manrope'; letter-spacing:-.035em; color:var(--navy); }
 .form-heading p { margin:0; color:#748195; font-size:15px; }
-.registration-form { display:flex; flex-direction:column; gap:22px; }
-.form-section { padding:28px; background:#fff; border:1px solid #e2e8ef; border-radius:13px; box-shadow:0 9px 28px #0d29430a; }
+.registration-form { display:flex; min-width:0; flex-direction:column; gap:22px; }
+.form-section { min-width:0; padding:28px; background:#fff; border:1px solid #e2e8ef; border-radius:13px; box-shadow:0 9px 28px #0d29430a; }
 .form-section-title { display:flex; gap:14px; align-items:flex-start; margin-bottom:24px; }
 .form-section-title > span { width:32px; height:32px; flex:none; display:grid; place-items:center; border-radius:50%; background:#e2f3f4; color:#087e89; font-size:10px; font-weight:800; }
 .form-section-title h2 { margin:0; font:800 20px 'Manrope'; color:#10243f; }
 .form-section-title p { margin:4px 0 0; color:#8792a2; font-size:12px; }
-.fields-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-.fields-grid label { display:flex; flex-direction:column; gap:8px; }
-.fields-grid label:last-child { grid-column:1/2; }
-.fields-grid label > span { color:#283d57; font-size:12px; font-weight:700; }
-.fields-grid input { width:100%; border:1px solid #d8e0e8; background:#fbfcfd; border-radius:8px; padding:13px 14px; color:#132c49; outline:none; transition:.2s; }
-.fields-grid input:focus { border-color:#1599a5; box-shadow:0 0 0 3px #1599a51a; background:#fff; }
-.fields-grid input::placeholder { color:#adb6c1; }
+.fields-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; min-width:0; }
+.fields-grid > label { display:flex; min-width:0; flex-direction:column; gap:8px; }
+.fields-grid > label:last-of-type { grid-column:1/2; }
+.fields-grid > label > span { color:#283d57; font-size:12px; font-weight:700; }
+.fields-grid > label > input { width:100%; min-width:0; border:1px solid #d8e0e8; background:#fbfcfd; border-radius:8px; padding:13px 14px; color:#132c49; outline:none; transition:.2s; }
+.fields-grid > label > input:focus { border-color:#1599a5; box-shadow:0 0 0 3px #1599a51a; background:#fff; }
+.fields-grid > label > input::placeholder { color:#adb6c1; }
+.fields-grid fieldset { grid-column:1/-1; width:100%; min-width:0; }
 .fields-grid fieldset label > span { position:relative; }
 .fields-grid fieldset label > span > span {
   width:18px;
@@ -157,7 +158,7 @@ footer { background:#06172f; color:#8fa0b6; display:flex; justify-content:space-
   box-shadow:inset 0 0 0 4px #fff;
   background:#0b4ea2;
 }
-.upload-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.upload-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; min-width:0; }
 .upload-field { min-height:82px; display:flex; align-items:center; gap:13px; padding:15px; border:1px dashed #bcc8d5; border-radius:9px; cursor:pointer; transition:.2s; }
 .upload-field:hover { border-color:#1599a5; background:#f4fbfb; }
 .upload-field:has(input:valid) { border-style:solid; border-color:#65b9c0; background:#f4fbfb; }
@@ -324,7 +325,7 @@ footer { background:#06172f; color:#8fa0b6; display:flex; justify-content:space-
   .continue-bar button { justify-content:center; }
   .prices strong { font-size:23px; }
   .fields-grid,.upload-grid { grid-template-columns:1fr; }
-  .fields-grid label:last-child { grid-column:auto; }
+  .fields-grid > label:last-of-type { grid-column:auto; }
   .form-section { padding:21px 17px; }
   .form-actions { align-items:stretch; flex-direction:column-reverse; gap:18px; }
   .form-actions > a { justify-content:center; }
@@ -387,8 +388,8 @@ footer { font-size:13px; }
 .back { min-height:44px; padding-top:10px; padding-bottom:10px; }
 .form-section-title h2 { font-size:22px; }
 .form-section-title p { font-size:14px; }
-.fields-grid label > span { font-size:14px; }
-.fields-grid input { min-height:49px; font-size:15px; }
+.fields-grid > label > span { font-size:14px; }
+.fields-grid > label > input { min-height:49px; font-size:15px; }
 .upload-copy b { font-size:14px; }
 .upload-copy small { font-size:12px; }
 .upload-field { min-height:92px; }

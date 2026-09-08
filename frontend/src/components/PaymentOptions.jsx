@@ -7,14 +7,13 @@ const options = [
     highlight: 'Pago inicial: S/ 1,550.00',
     deadline: 'Adjuntar hasta el 19/09/2026',
     installments: [
-      ['Tutoría especializada', 'S/ 750.00', '18/10/2026'],
-      ['II módulo', 'S/ 850.00', '18/10/2026'],
+      ['Tutoría especializada + II módulo', 'S/ 1,600.00', '18/10/2026'],
       ['III módulo', 'S/ 850.00', '15/11/2026'],
     ],
   },
   {
     name: 'Opción 2',
-    description: 'Distribuye la inversión en cuatro pagos según el cronograma indicado.',
+    description: 'Distribuye la inversión en cuatro pagos según el cronograma indicado. Esta incluido el costo de la tutoría especializada.',
     installments: [
       ['Inscripción', 'S/ 700.00', '19/09/2026'],
       ['I módulo', 'S/ 1,100.00', '11/10/2026'],
