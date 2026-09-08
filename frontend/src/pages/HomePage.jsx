@@ -43,9 +43,9 @@ export default function HomePage() {
             <span>PERIODO DE INSCRIPCIÓN</span>
           </div>
           <div className="date-range">
-            <strong>14</strong>
+            <strong>07</strong>
             <div className="text-4xl font-bold">AL</div>
-            <strong>18</strong>
+            <strong>19</strong>
           </div>
           <div className="month">SEPTIEMBRE · 2026</div>
           <div className="card-rule" />
