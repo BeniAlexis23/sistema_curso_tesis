@@ -12,7 +12,7 @@ import Shell from "../components/Shell";
 export default function HomePage() {
   return (
     <Shell>
-      <main className="hero">
+      <main className="hero -mt-25">
         <div className="hero-glow glow-one" />
         <div className="hero-glow glow-two" />
         <section className="hero-copy">
@@ -44,7 +44,7 @@ export default function HomePage() {
           </div>
           <div className="date-range">
             <strong>14</strong>
-            <span>AL</span>
+            <div className="text-4xl font-bold">AL</div>
             <strong>18</strong>
           </div>
           <div className="month">SEPTIEMBRE · 2026</div>

@@ -8,7 +8,7 @@ export default function Brand() {
       </span>
       <span>
         <b>UNDC</b>
-        <small>Facultad de Ingeniería</small>
+        <div className="text-xs font-bold">Facultad de Ingeniería</div>
       </span>
     </Link>
   );
