@@ -229,6 +229,7 @@ export default function AdminUsersPage() {
                 <tr>
                   <th className="p-4">Administrador</th>
                   <th className="p-4">Correo institucional</th>
+                  <th className="p-4">Rol</th>
                   <th className="p-4">Estado</th>
                   <th className="p-4">Fecha de registro</th>
                   <th className="p-4 text-right">Acciones</th>
@@ -259,6 +260,19 @@ export default function AdminUsersPage() {
                         <Mail size={15} className="text-slate-400" />
                         <span>{user.email}</span>
                       </div>
+                    </td>
+                    <td className="p-4">
+                      {user.role === 'superadmin' ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-undc-blue border border-blue-200">
+                          <span className="size-1.5 rounded-full bg-undc-blue" />
+                          Superadmin
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold text-cyan-800 border border-cyan-200">
+                          <span className="size-1.5 rounded-full bg-cyan-500" />
+                          Admin
+                        </span>
+                      )}
                     </td>
                     <td className="p-4">
                       {user.is_active ? (

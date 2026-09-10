@@ -5,26 +5,26 @@ import {
 } from '../controllers/adminController.js'
 import { listPayments, updatePayment } from '../controllers/paymentController.js'
 import { exportReportExcel, exportReportPdf, listReport } from '../controllers/reportController.js'
-import { authenticateAdmin } from '../middleware/authenticateAdmin.js'
+import { authenticateAdmin, requireSuperadmin } from '../middleware/authenticateAdmin.js'
 import { uploadOneDocument } from '../middleware/uploadDocuments.js'
 
 const router = Router()
 router.post('/login', login)
 router.use(authenticateAdmin)
 router.get('/me', getCurrentUser)
-router.get('/users', listUsers)
-router.post('/users', createUser)
-router.patch('/users/:id', updateUser)
-router.get('/registrations', listRegistrations)
-router.get('/registrations/:id', getRegistration)
-router.patch('/registrations/:id', updateRegistration)
-router.delete('/registrations/:id', deleteRegistration)
-router.patch('/registrations/:id/status', updateStatus)
-router.get('/payments', listPayments)
-router.patch('/payments/:id', updatePayment)
-router.get('/reports', listReport)
-router.get('/reports/pdf', exportReportPdf)
-router.get('/reports/excel', exportReportExcel)
-router.get('/registrations/:id/documents/:documentId', downloadDocument)
-router.put('/registrations/:id/documents/:documentId', uploadOneDocument, replaceDocument)
+router.get('/users', requireSuperadmin, listUsers)
+router.post('/users', requireSuperadmin, createUser)
+router.patch('/users/:id', requireSuperadmin, updateUser)
+router.get('/registrations', requireSuperadmin, listRegistrations)
+router.get('/registrations/:id', requireSuperadmin, getRegistration)
+router.patch('/registrations/:id', requireSuperadmin, updateRegistration)
+router.delete('/registrations/:id', requireSuperadmin, deleteRegistration)
+router.patch('/registrations/:id/status', requireSuperadmin, updateStatus)
+router.get('/payments', requireSuperadmin, listPayments)
+router.patch('/payments/:id', requireSuperadmin, updatePayment)
+router.get('/reports', requireSuperadmin, listReport)
+router.get('/reports/pdf', requireSuperadmin, exportReportPdf)
+router.get('/reports/excel', requireSuperadmin, exportReportExcel)
+router.get('/registrations/:id/documents/:documentId', requireSuperadmin, downloadDocument)
+router.put('/registrations/:id/documents/:documentId', requireSuperadmin, uploadOneDocument, replaceDocument)
 export default router

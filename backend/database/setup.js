@@ -64,7 +64,10 @@ try {
      JOIN registrations r ON r.id = p.registration_id AND r.payment_mode = 'option1'
      SET p.installment_order = 3 WHERE p.installment_order = 4 AND p.concept = 'III módulo'`,
   )
-  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@undc.edu.pe').toLowerCase()
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
+  if (!adminEmail) {
+    throw new Error('ADMIN_EMAIL no está configurado en las variables de entorno (.env)')
+  }
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin12345!'
   const passwordHash = await bcrypt.hash(adminPassword, 12)
   await connection.query(

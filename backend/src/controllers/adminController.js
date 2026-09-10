@@ -6,6 +6,14 @@ import { pool } from '../config/database.js'
 import { sendApprovalEmail } from '../services/emailService.js'
 import { replacePaymentSchedule } from '../services/paymentSchedule.js'
 
+function getSuperadminEmails() {
+  return (process.env.ADMIN_EMAIL || '')
+    .toLowerCase()
+    .split(',')
+    .map((e) => e.trim())
+    .filter(Boolean)
+}
+
 export async function login(req, res, next) {
   try {
     const email = req.body.email?.trim().toLowerCase()
@@ -13,7 +21,9 @@ export async function login(req, res, next) {
     if (!email || !password) return res.status(400).json({ message: 'Correo y contraseña son obligatorios' })
     const [admins] = await pool.query('SELECT id, name, email, password_hash FROM administrators WHERE email = ? AND is_active = 1 LIMIT 1', [email])
     if (!admins.length || !(await bcrypt.compare(password, admins[0].password_hash))) return res.status(401).json({ message: 'Credenciales incorrectas' })
-    const admin = { id: admins[0].id, name: admins[0].name, email: admins[0].email }
+    const superadmins = getSuperadminEmails()
+    const role = superadmins.includes(email) ? 'superadmin' : 'admin'
+    const admin = { id: admins[0].id, name: admins[0].name, email: admins[0].email, role }
     const token = jwt.sign(admin, process.env.JWT_SECRET || 'development-secret-change-me', { expiresIn: '8h' })
     res.json({ data: { token, admin } })
   } catch (error) { next(error) }
@@ -26,7 +36,9 @@ export async function getCurrentUser(req, res, next) {
       [req.admin.id],
     )
     if (!admins.length) return res.status(404).json({ message: 'Usuario no encontrado' })
-    res.json({ data: admins[0] })
+    const superadmins = getSuperadminEmails()
+    const role = superadmins.includes(admins[0].email.toLowerCase()) ? 'superadmin' : 'admin'
+    res.json({ data: { ...admins[0], role } })
   } catch (error) { next(error) }
 }
 
@@ -35,7 +47,12 @@ export async function listUsers(_req, res, next) {
     const [rows] = await pool.query(
       'SELECT id, name, email, is_active, created_at FROM administrators ORDER BY created_at DESC',
     )
-    res.json({ data: rows })
+    const superadmins = getSuperadminEmails()
+    const withRoles = rows.map((u) => ({
+      ...u,
+      role: superadmins.includes(u.email.toLowerCase()) ? 'superadmin' : 'admin',
+    }))
+    res.json({ data: withRoles })
   } catch (error) { next(error) }
 }
 

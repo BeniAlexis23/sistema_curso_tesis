@@ -10,3 +10,11 @@ export function authenticateAdmin(req, res, next) {
     res.status(401).json({ message: 'La sesión expiró o no es válida' })
   }
 }
+
+export function requireSuperadmin(req, res, next) {
+  if (req.admin?.role !== 'superadmin') {
+    return res.status(403).json({ message: 'Acceso denegado: se requieren privilegios de superadministrador' })
+  }
+  next()
+}
+

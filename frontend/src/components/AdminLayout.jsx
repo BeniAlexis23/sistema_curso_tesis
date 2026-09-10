@@ -1,18 +1,44 @@
-import { BarChart3, ClipboardCheck, CreditCard, Home, LogOut, Menu, Users, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, ClipboardCheck, CreditCard, Home, LogOut, Menu, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { clearAdminToken } from '../services/adminService'
+import { clearAdminToken, getAdminUser } from '../services/adminService'
 import Brand from './Brand'
 
-const modules = [
-  { to: '/admin', label: 'Inscripciones', icon: ClipboardCheck, end: true },
-  { to: '/admin/pagos', label: 'Seguimiento de pagos', icon: CreditCard },
-  { to: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
-  { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
+const allModules = [
+  { to: '/admin', label: 'Inscripciones', icon: ClipboardCheck, end: true, superadminOnly: true },
+  { to: '/admin/pagos', label: 'Seguimiento de pagos', icon: CreditCard, superadminOnly: true },
+  { to: '/admin/reportes', label: 'Reportes', icon: BarChart3, superadminOnly: true },
+  { to: '/admin/usuarios', label: 'Usuarios', icon: Users, superadminOnly: true },
+  { to: '/admin/asistencia', label: 'Asistencia', icon: CalendarCheck, superadminOnly: false },
 ]
 
 function ModuleLinks({ closeMenu }) {
-  return <>{modules.map(({ to, label, icon: Icon, end }) => <NavLink end={end} key={to} onClick={closeMenu} to={to} className={({ isActive }) => `flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-bold transition ${isActive ? 'bg-undc-blue text-white shadow-lg shadow-blue-950/20' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}><Icon size={19} />{label}</NavLink>)}</>
+  const user = getAdminUser()
+  const isSuper = user?.role === 'superadmin'
+  const visibleModules = allModules.filter((m) => !m.superadminOnly || isSuper)
+
+  return (
+    <>
+      {visibleModules.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          end={end}
+          key={to}
+          onClick={closeMenu}
+          to={to}
+          className={({ isActive }) =>
+            `flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-bold transition ${
+              isActive
+                ? 'bg-undc-blue text-white shadow-lg shadow-blue-950/20'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white'
+            }`
+          }
+        >
+          <Icon size={19} />
+          {label}
+        </NavLink>
+      ))}
+    </>
+  )
 }
 
 export default function AdminLayout({ children }) {

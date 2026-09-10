@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import Brand from '../components/Brand'
-import { loginAdmin, saveAdminToken } from '../services/adminService'
+import { loginAdmin, saveAdminToken, saveAdminUser } from '../services/adminService'
 
 export default function AdminLoginPage() {
   const navigate = useNavigate()
@@ -13,8 +13,10 @@ export default function AdminLoginPage() {
     try {
       const { data } = await loginAdmin(Object.fromEntries(new FormData(event.currentTarget)))
       saveAdminToken(data.token)
+      saveAdminUser(data.admin)
       await Swal.fire({ title: `Bienvenido, ${data.admin.name}`, icon: 'success', timer: 1200, showConfirmButton: false })
-      navigate('/admin', { replace: true })
+      const destination = data.admin?.role === 'superadmin' ? '/admin' : '/admin/asistencia'
+      navigate(destination, { replace: true })
     } catch (error) { Swal.fire({ title: 'Acceso denegado', text: error.message, icon: 'error', confirmButtonColor: '#0b4d96' }) }
     finally { setLoading(false) }
   }

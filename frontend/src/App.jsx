@@ -8,6 +8,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminAttendancePage from "./pages/AdminAttendancePage";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
 export default function App() {
@@ -24,7 +25,7 @@ export default function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute requiredRole="superadmin">
             <AdminDashboardPage />
           </ProtectedAdminRoute>
         }
@@ -32,7 +33,7 @@ export default function App() {
       <Route
         path="/admin/pagos"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute requiredRole="superadmin">
             <AdminPaymentsPage />
           </ProtectedAdminRoute>
         }
@@ -40,7 +41,7 @@ export default function App() {
       <Route
         path="/admin/reportes"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute requiredRole="superadmin">
             <AdminReportsPage />
           </ProtectedAdminRoute>
         }
@@ -48,8 +49,16 @@ export default function App() {
       <Route
         path="/admin/usuarios"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute requiredRole="superadmin">
             <AdminUsersPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/asistencia"
+        element={
+          <ProtectedAdminRoute>
+            <AdminAttendancePage />
           </ProtectedAdminRoute>
         }
       />

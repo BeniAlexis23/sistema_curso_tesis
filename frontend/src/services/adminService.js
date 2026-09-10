@@ -1,9 +1,19 @@
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 const TOKEN_KEY = 'undc_admin_token'
+const USER_KEY = 'undc_admin_user'
 
 export const getAdminToken = () => sessionStorage.getItem(TOKEN_KEY)
 export const saveAdminToken = (token) => sessionStorage.setItem(TOKEN_KEY, token)
-export const clearAdminToken = () => sessionStorage.removeItem(TOKEN_KEY)
+export const getAdminUser = () => {
+  try { return JSON.parse(sessionStorage.getItem(USER_KEY) || 'null') }
+  catch { return null }
+}
+export const saveAdminUser = (user) => sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+export const isSuperadmin = () => getAdminUser()?.role === 'superadmin'
+export const clearAdminToken = () => {
+  sessionStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(USER_KEY)
+}
 
 async function readResponse(response) {
   const contentType = response.headers.get('content-type') || ''
