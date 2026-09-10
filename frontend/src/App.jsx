@@ -7,6 +7,7 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
 export default function App() {
@@ -41,6 +42,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute>
             <AdminReportsPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/usuarios"
+        element={
+          <ProtectedAdminRoute>
+            <AdminUsersPage />
           </ProtectedAdminRoute>
         }
       />

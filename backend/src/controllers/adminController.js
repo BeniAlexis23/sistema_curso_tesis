@@ -19,6 +19,108 @@ export async function login(req, res, next) {
   } catch (error) { next(error) }
 }
 
+export async function getCurrentUser(req, res, next) {
+  try {
+    const [admins] = await pool.query(
+      'SELECT id, name, email, is_active, created_at FROM administrators WHERE id = ? AND is_active = 1 LIMIT 1',
+      [req.admin.id],
+    )
+    if (!admins.length) return res.status(404).json({ message: 'Usuario no encontrado' })
+    res.json({ data: admins[0] })
+  } catch (error) { next(error) }
+}
+
+export async function listUsers(_req, res, next) {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, name, email, is_active, created_at FROM administrators ORDER BY created_at DESC',
+    )
+    res.json({ data: rows })
+  } catch (error) { next(error) }
+}
+
+export async function createUser(req, res, next) {
+  try {
+    const { name, email, password } = req.body
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({ message: 'Todos los campos son obligatorios' })
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      return res.status(400).json({ message: 'El correo electrónico no es válido' })
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' })
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12)
+    const [result] = await pool.query(
+      'INSERT INTO administrators (name, email, password_hash, is_active) VALUES (?, ?, ?, 1)',
+      [name.trim(), email.trim().toLowerCase(), passwordHash],
+    )
+
+    res.status(201).json({
+      message: 'Usuario creado correctamente',
+      data: {
+        id: result.insertId,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        is_active: 1,
+      },
+    })
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'El correo electrónico ya se encuentra registrado' })
+    }
+    next(error)
+  }
+}
+
+export async function updateUser(req, res, next) {
+  try {
+    const { id } = req.params
+    const { name, email, isActive, password } = req.body
+
+    if (!name?.trim() || !email?.trim()) {
+      return res.status(400).json({ message: 'El nombre y el correo son obligatorios' })
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      return res.status(400).json({ message: 'El correo electrónico no es válido' })
+    }
+
+    const activeValue = isActive === false || isActive === 0 || isActive === '0' ? 0 : 1
+
+    if (Number(id) === req.admin.id && activeValue === 0) {
+      return res.status(400).json({ message: 'No puedes desactivar tu propia cuenta en sesión' })
+    }
+
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' })
+      }
+      const passwordHash = await bcrypt.hash(password, 12)
+      const [result] = await pool.query(
+        'UPDATE administrators SET name = ?, email = ?, is_active = ?, password_hash = ? WHERE id = ?',
+        [name.trim(), email.trim().toLowerCase(), activeValue, passwordHash, id],
+      )
+      if (!result.affectedRows) return res.status(404).json({ message: 'Usuario no encontrado' })
+    } else {
+      const [result] = await pool.query(
+        'UPDATE administrators SET name = ?, email = ?, is_active = ? WHERE id = ?',
+        [name.trim(), email.trim().toLowerCase(), activeValue, id],
+      )
+      if (!result.affectedRows) return res.status(404).json({ message: 'Usuario no encontrado' })
+    }
+
+    res.json({ message: 'Usuario actualizado correctamente' })
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'El correo electrónico ya se encuentra registrado por otro usuario' })
+    }
+    next(error)
+  }
+}
+
+
 export async function listRegistrations(req, res, next) {
   try {
     const status = req.query.status

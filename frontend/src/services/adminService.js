@@ -29,6 +29,10 @@ export async function loginAdmin(credentials) {
   return result
 }
 
+export const getCurrentUser = () => request('/admin/me')
+export const listUsers = () => request('/admin/users')
+export const createUser = (data) => request('/admin/users', { method: 'POST', body: JSON.stringify(data) })
+export const updateUser = (id, data) => request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const listRegistrations = (status = '') => request(`/admin/registrations${status ? `?status=${status}` : ''}`)
 export const getRegistration = (id) => request(`/admin/registrations/${id}`)
 export const updateRegistration = (id, data) => request(`/admin/registrations/${id}`, { method: 'PATCH', body: JSON.stringify(data) })

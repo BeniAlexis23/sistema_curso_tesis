@@ -1,5 +1,8 @@
 import { Router } from 'express'
-import { deleteRegistration, downloadDocument, getRegistration, listRegistrations, login, replaceDocument, updateRegistration, updateStatus } from '../controllers/adminController.js'
+import {
+  createUser, deleteRegistration, downloadDocument, getCurrentUser, getRegistration,
+  listRegistrations, listUsers, login, replaceDocument, updateRegistration, updateStatus, updateUser,
+} from '../controllers/adminController.js'
 import { listPayments, updatePayment } from '../controllers/paymentController.js'
 import { exportReportExcel, exportReportPdf, listReport } from '../controllers/reportController.js'
 import { authenticateAdmin } from '../middleware/authenticateAdmin.js'
@@ -8,6 +11,10 @@ import { uploadOneDocument } from '../middleware/uploadDocuments.js'
 const router = Router()
 router.post('/login', login)
 router.use(authenticateAdmin)
+router.get('/me', getCurrentUser)
+router.get('/users', listUsers)
+router.post('/users', createUser)
+router.patch('/users/:id', updateUser)
 router.get('/registrations', listRegistrations)
 router.get('/registrations/:id', getRegistration)
 router.patch('/registrations/:id', updateRegistration)

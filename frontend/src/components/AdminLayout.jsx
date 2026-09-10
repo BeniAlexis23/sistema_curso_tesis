@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, CreditCard, Home, LogOut, Menu, X } from 'lucide-react'
+import { BarChart3, ClipboardCheck, CreditCard, Home, LogOut, Menu, Users, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { clearAdminToken } from '../services/adminService'
@@ -8,6 +8,7 @@ const modules = [
   { to: '/admin', label: 'Inscripciones', icon: ClipboardCheck, end: true },
   { to: '/admin/pagos', label: 'Seguimiento de pagos', icon: CreditCard },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3 },
+  { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
 ]
 
 function ModuleLinks({ closeMenu }) {
