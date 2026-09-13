@@ -11,9 +11,25 @@ export async function login(req, res, next) {
     const email = req.body.email?.trim().toLowerCase()
     const password = req.body.password
     if (!email || !password) return res.status(400).json({ message: 'Correo y contraseña son obligatorios' })
-    const [admins] = await pool.query('SELECT id, name, email, password_hash FROM administrators WHERE email = ? AND is_active = 1 LIMIT 1', [email])
+    const [admins] = await pool.query(
+      `SELECT a.id, a.name, a.email, a.password_hash, r.id AS role_id, r.name AS role_name
+       FROM administrators a JOIN roles r ON r.id = a.role_id AND r.is_active = 1
+       WHERE a.email = ? AND a.is_active = 1 LIMIT 1`,
+      [email],
+    )
     if (!admins.length || !(await bcrypt.compare(password, admins[0].password_hash))) return res.status(401).json({ message: 'Credenciales incorrectas' })
-    const admin = { id: admins[0].id, name: admins[0].name, email: admins[0].email }
+    const [permissions] = await pool.query(
+      `SELECT p.code FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id
+       WHERE rp.role_id = ? ORDER BY p.code`,
+      [admins[0].role_id],
+    )
+    const admin = {
+      id: admins[0].id,
+      name: admins[0].name,
+      email: admins[0].email,
+      role: { id: admins[0].role_id, name: admins[0].role_name },
+      permissions: permissions.map(permission => permission.code),
+    }
     const token = jwt.sign(admin, process.env.JWT_SECRET || 'development-secret-change-me', { expiresIn: '8h' })
     res.json({ data: { token, admin } })
   } catch (error) { next(error) }

@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import AdminLayout from '../components/AdminLayout'
 import {
-  clearAdminToken, deleteRegistration, downloadRegistrationDocument, getDocumentPreview,
+  clearAdminToken, deleteRegistration, downloadRegistrationDocument, getDocumentPreview, hasAdminPermission,
   getRegistration, listRegistrations, replaceRegistrationDocument, updateRegistration, updateRegistrationStatus,
 } from '../services/adminService'
 
@@ -13,6 +13,9 @@ const documentLabels = { bachelorDiploma: 'Diploma de bachiller', suneduRegistra
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate()
+  const canManage = hasAdminPermission('registrations.manage')
+  const canDelete = hasAdminPermission('registrations.delete')
+  const canViewPayments = hasAdminPermission('payments.view')
   const [items, setItems] = useState([])
   const [selected, setSelected] = useState(null)
   const [checked, setChecked] = useState({})
@@ -127,7 +130,7 @@ export default function AdminDashboardPage() {
 
   return <AdminLayout>
     <main className="admin-main">
-      <div className="admin-title"><div><span className="section-kicker">ADMISIONES · 2026</span><h1>Inscripciones</h1><p>Revisa y valida las solicitudes recibidas.</p></div><div className="flex flex-wrap justify-end gap-2"><Link className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-undc-blue px-4 text-sm font-bold text-white" to="/admin/pagos"><CreditCard size={17} /> Gestionar pagos</Link><button onClick={load}><RefreshCw size={17} /> Actualizar</button></div></div>
+      <div className="admin-title"><div><span className="section-kicker">ADMISIONES · 2026</span><h1>Inscripciones</h1><p>Revisa y valida las solicitudes recibidas.</p></div><div className="flex flex-wrap justify-end gap-2">{canViewPayments && <Link className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-undc-blue px-4 text-sm font-bold text-white" to="/admin/pagos"><CreditCard size={17} /> Gestionar pagos</Link>}<button onClick={load}><RefreshCw size={17} /> Actualizar</button></div></div>
       <section className="admin-stats"><div><FileText /><span><small>TOTAL</small><b>{items.length}</b></span></div><div><UserRoundCheck /><span><small>PENDIENTES</small><b>{items.filter(i => i.status === 'pending').length}</b></span></div><div><CheckCircle2 /><span><small>APROBADAS</small><b>{items.filter(i => i.status === 'approved').length}</b></span></div></section>
       <section className="admin-content">
         <div className="admin-toolbar"><label><Search size={17} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre, DNI o correo" /></label><select value={filter} onChange={e => setFilter(e.target.value)}><option value="">Todos los estados</option><option value="pending">Pendientes</option><option value="approved">Aprobados</option><option value="observed">Observados</option><option value="rejected">Rechazados</option></select></div>
@@ -139,10 +142,10 @@ export default function AdminDashboardPage() {
       <aside className="review-panel">
         <header><div><span className={`status ${selected.status}`}>{labels[selected.status]}</span><h2>{selected.first_names} {selected.last_names}</h2><p>DNI {selected.dni}</p></div><button onClick={() => setSelected(null)}><X /></button></header>
         <div className="review-body">
-          <section><h3>Datos del participante</h3><p><span>Correo</span><b>{selected.email}</b></p><p><span>Celular</span><b>{selected.phone}</b></p><p><span>Modalidad de pago</span><b>{selected.payment_mode === 'option2' ? 'Opción 2' : 'Opción 1'}</b></p><div className="admin-record-actions"><button onClick={editSelected}><Edit3 size={16} /> Editar datos</button><button className="danger" onClick={removeSelected}><Trash2 size={16} /> Eliminar inscripción</button></div></section>
-          <section><h3>Documentos presentados</h3><p className="review-help">Visualiza cada PDF, reemplázalo si recibiste una corrección por WhatsApp y marca la casilla cuando sea correcto.</p><div className="review-documents">{selected.documents.map(doc => <div className="review-document" key={doc.id}><button className="document-preview-button" onClick={() => openPreview(doc)}><FileText size={19} /><span><b>{documentLabels[doc.document_type]}</b><small>{doc.original_name}</small></span><Eye size={17} /></button><button className="document-download" title="Descargar" onClick={() => downloadRegistrationDocument(selected.id, doc)}><Download size={17} /></button><label className="document-replace"><input type="file" accept="application/pdf,.pdf" onChange={event => { replaceDocument(doc, event.target.files[0]); event.target.value = '' }} /><span>Reemplazar PDF</span></label><label className="document-check"><input type="checkbox" checked={Boolean(checked[doc.id])} onChange={e => setChecked({ ...checked, [doc.id]: e.target.checked })} /><span>Correcto</span></label></div>)}</div></section>
+          <section><h3>Datos del participante</h3><p><span>Correo</span><b>{selected.email}</b></p><p><span>Celular</span><b>{selected.phone}</b></p><p><span>Modalidad de pago</span><b>{selected.payment_mode === 'option2' ? 'Opción 2' : 'Opción 1'}</b></p>{(canManage || canDelete) && <div className="admin-record-actions">{canManage && <button onClick={editSelected}><Edit3 size={16} /> Editar datos</button>}{canDelete && <button className="danger" onClick={removeSelected}><Trash2 size={16} /> Eliminar inscripción</button>}</div>}</section>
+          <section><h3>Documentos presentados</h3><p className="review-help">Visualiza cada PDF{canManage ? ', reemplázalo si recibiste una corrección y valida su contenido' : ' y revisa su contenido'}.</p><div className="review-documents">{selected.documents.map(doc => <div className="review-document" key={doc.id}><button className="document-preview-button" onClick={() => openPreview(doc)}><FileText size={19} /><span><b>{documentLabels[doc.document_type]}</b><small>{doc.original_name}</small></span><Eye size={17} /></button><button className="document-download" title="Descargar" onClick={() => downloadRegistrationDocument(selected.id, doc)}><Download size={17} /></button>{canManage && <label className="document-replace"><input type="file" accept="application/pdf,.pdf" onChange={event => { replaceDocument(doc, event.target.files[0]); event.target.value = '' }} /><span>Reemplazar PDF</span></label>}{canManage && <label className="document-check"><input type="checkbox" checked={Boolean(checked[doc.id])} onChange={e => setChecked({ ...checked, [doc.id]: e.target.checked })} /><span>Correcto</span></label>}</div>)}</div></section>
         </div>
-        <footer><span>Actualizar resultado de revisión</span><div><button className="observe" onClick={() => changeStatus('observed')}>Observar</button><button className="reject" onClick={() => changeStatus('rejected')}>Rechazar</button><button className="approve" disabled={!allChecked} title={!allChecked ? 'Verifica los cuatro documentos para aprobar' : ''} onClick={() => changeStatus('approved')}>Aprobar</button></div>{!allChecked && <small>Marca los 4 documentos como correctos para habilitar la aprobación.</small>}</footer>
+        {canManage && <footer><span>Actualizar resultado de revisión</span><div><button className="observe" onClick={() => changeStatus('observed')}>Observar</button><button className="reject" onClick={() => changeStatus('rejected')}>Rechazar</button><button className="approve" disabled={!allChecked} title={!allChecked ? 'Verifica los cuatro documentos para aprobar' : ''} onClick={() => changeStatus('approved')}>Aprobar</button></div>{!allChecked && <small>Marca los 4 documentos como correctos para habilitar la aprobación.</small>}</footer>}
       </aside>
     </div>}
 

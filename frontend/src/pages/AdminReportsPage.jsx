@@ -3,13 +3,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import AdminLayout from '../components/AdminLayout'
-import { clearAdminToken, downloadReport, getReport } from '../services/adminService'
+import { clearAdminToken, downloadReport, getReport, hasAdminPermission } from '../services/adminService'
 
 const money = value => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(Number(value))
 const statuses = { pending: 'Pendiente', approved: 'Aprobado', observed: 'Observado', rejected: 'Rechazado' }
 
 export default function AdminReportsPage() {
   const navigate = useNavigate()
+  const canExport = hasAdminPermission('reports.export')
   const [rows, setRows] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -35,7 +36,7 @@ export default function AdminReportsPage() {
     <main className="mx-auto w-[calc(100%-2rem)] max-w-[1240px] py-8 lg:py-10">
       <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div><span className="section-kicker">ANÁLISIS ADMINISTRATIVO · 2026</span><h1 className="font-display mt-2 text-3xl font-extrabold text-undc-navy lg:text-4xl">Reportes</h1><p className="mt-1 text-sm text-slate-500">Resumen consolidado de inscritos y seguimiento económico.</p></div>
-        <div className="flex flex-col gap-2 sm:flex-row"><button className="report-export report-export-pdf" disabled={Boolean(exporting)} onClick={() => exportFile('pdf')}><FileText size={18} />{exporting === 'pdf' ? 'Generando…' : 'Exportar PDF'}<Download size={15} /></button><button className="report-export report-export-excel" disabled={Boolean(exporting)} onClick={() => exportFile('excel')}><FileSpreadsheet size={18} />{exporting === 'excel' ? 'Generando…' : 'Exportar Excel'}<Download size={15} /></button></div>
+        {canExport && <div className="flex flex-col gap-2 sm:flex-row"><button className="report-export report-export-pdf" disabled={Boolean(exporting)} onClick={() => exportFile('pdf')}><FileText size={18} />{exporting === 'pdf' ? 'Generando…' : 'Exportar PDF'}<Download size={15} /></button><button className="report-export report-export-excel" disabled={Boolean(exporting)} onClick={() => exportFile('excel')}><FileSpreadsheet size={18} />{exporting === 'excel' ? 'Generando…' : 'Exportar Excel'}<Download size={15} /></button></div>}
       </div>
       <section className="my-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-5"><UsersRound className="text-undc-cyan" /><small className="mt-3 block text-xs font-bold text-slate-400">INSCRITOS</small><b className="font-display text-2xl text-undc-navy">{rows.length}</b></div>

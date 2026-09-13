@@ -3,13 +3,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import AdminLayout from '../components/AdminLayout'
-import { clearAdminToken, listPayments, updatePayment } from '../services/adminService'
+import { clearAdminToken, hasAdminPermission, listPayments, updatePayment } from '../services/adminService'
 
 const money = value => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(Number(value))
 const date = value => value ? new Date(`${String(value).slice(0, 10)}T12:00:00`).toLocaleDateString('es-PE') : '—'
 
 export default function AdminPaymentsPage() {
   const navigate = useNavigate()
+  const canManage = hasAdminPermission('payments.manage')
   const [rows, setRows] = useState([])
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState(null)
@@ -80,7 +81,7 @@ export default function AdminPaymentsPage() {
       </section>
     </main>
     {selected && <div className="fixed inset-0 z-30 flex justify-end bg-undc-navy/60 backdrop-blur-sm" onMouseDown={e => e.target === e.currentTarget && setSelectedId(null)}><aside className="h-full w-full max-w-2xl overflow-y-auto bg-white shadow-2xl"><header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white p-5"><div><span className="section-kicker">DETALLE DEL PARTICIPANTE</span><h2 className="font-display mt-2 text-2xl font-extrabold text-undc-navy">{selected.first_names} {selected.last_names}</h2></div><button className="grid size-10 place-items-center rounded-full bg-slate-100 text-slate-600" onClick={() => setSelectedId(null)}><X /></button></header><div className="space-y-8 p-5">
-      <section><h3 className="font-display mb-4 text-lg font-extrabold text-undc-navy">Cronograma de pagos</h3><div className="space-y-3">{selected.payments.map(payment => <article className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center" key={payment.payment_id}><div><b className="block text-undc-navy">{payment.concept}</b><span className="mt-1 block text-sm text-slate-500">Vence: {date(payment.due_date)} · {money(payment.amount)}</span>{payment.notes && <small className="mt-1 block text-slate-500">{payment.notes}</small>}</div><button className={`min-h-10 rounded-lg px-4 text-sm font-bold ${payment.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} onClick={() => changePayment(payment)}>{payment.payment_status === 'paid' ? `Pagado · ${date(payment.paid_at)}` : 'Marcar pagado'}</button></article>)}</div></section>
+      <section><h3 className="font-display mb-4 text-lg font-extrabold text-undc-navy">Cronograma de pagos</h3><div className="space-y-3">{selected.payments.map(payment => <article className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center" key={payment.payment_id}><div><b className="block text-undc-navy">{payment.concept}</b><span className="mt-1 block text-sm text-slate-500">Vence: {date(payment.due_date)} · {money(payment.amount)}</span>{payment.notes && <small className="mt-1 block text-slate-500">{payment.notes}</small>}</div>{canManage ? <button className={`min-h-10 rounded-lg px-4 text-sm font-bold ${payment.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`} onClick={() => changePayment(payment)}>{payment.payment_status === 'paid' ? `Pagado · ${date(payment.paid_at)}` : 'Marcar pagado'}</button> : <span className={`rounded-lg px-4 py-2 text-sm font-bold ${payment.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{payment.payment_status === 'paid' ? `Pagado · ${date(payment.paid_at)}` : 'Pendiente'}</span>}</article>)}</div></section>
     </div></aside></div>}
   </AdminLayout>
 }

@@ -7,6 +7,8 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
+import AdminUsersPage from "./pages/AdminUsersPage";
+import AdminRolesPage from "./pages/AdminRolesPage";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
 export default function App() {
@@ -23,15 +25,31 @@ export default function App() {
       <Route
         path="/admin"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute permission="registrations.view">
             <AdminDashboardPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/usuarios"
+        element={
+          <ProtectedAdminRoute permission="users.view">
+            <AdminUsersPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/roles"
+        element={
+          <ProtectedAdminRoute permission="roles.view">
+            <AdminRolesPage />
           </ProtectedAdminRoute>
         }
       />
       <Route
         path="/admin/pagos"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute permission="payments.view">
             <AdminPaymentsPage />
           </ProtectedAdminRoute>
         }
@@ -39,7 +57,7 @@ export default function App() {
       <Route
         path="/admin/reportes"
         element={
-          <ProtectedAdminRoute>
+          <ProtectedAdminRoute permission="reports.view">
             <AdminReportsPage />
           </ProtectedAdminRoute>
         }
