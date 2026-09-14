@@ -1,6 +1,8 @@
 import { Navigate } from 'react-router-dom'
-import { getAdminToken } from '../services/adminService'
+import { getAdminHomePath, getAdminToken, hasAdminPermission } from '../services/adminService'
 
-export default function ProtectedAdminRoute({ children }) {
-  return getAdminToken() ? children : <Navigate to="/admin/login" replace />
+export default function ProtectedAdminRoute({ children, permission }) {
+  if (!getAdminToken()) return <Navigate to="/admin/login" replace />
+  if (permission && !hasAdminPermission(permission)) return <Navigate to={getAdminHomePath()} replace />
+  return children
 }

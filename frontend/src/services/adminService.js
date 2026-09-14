@@ -5,6 +5,28 @@ export const getAdminToken = () => sessionStorage.getItem(TOKEN_KEY)
 export const saveAdminToken = (token) => sessionStorage.setItem(TOKEN_KEY, token)
 export const clearAdminToken = () => sessionStorage.removeItem(TOKEN_KEY)
 
+export function getAdminSession() {
+  try {
+    const payload = getAdminToken()?.split('.')[1]
+    if (!payload) return null
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const bytes = Uint8Array.from(atob(normalized), character => character.charCodeAt(0))
+    return JSON.parse(new TextDecoder().decode(bytes))
+  } catch { return null }
+}
+
+export const hasAdminPermission = permission => getAdminSession()?.permissions?.includes(permission) || false
+
+export function getAdminHomePath() {
+  const permissions = getAdminSession()?.permissions || []
+  if (permissions.includes('registrations.view')) return '/admin'
+  if (permissions.includes('payments.view')) return '/admin/pagos'
+  if (permissions.includes('reports.view')) return '/admin/reportes'
+  if (permissions.includes('users.view')) return '/admin/usuarios'
+  if (permissions.includes('roles.view')) return '/admin/roles'
+  return '/admin/login'
+}
+
 async function readResponse(response) {
   const contentType = response.headers.get('content-type') || ''
   if (contentType.includes('application/json')) return response.json()
@@ -37,6 +59,16 @@ export const updateRegistrationStatus = (id, status, observation) => request(`/a
 export const listPayments = () => request('/admin/payments')
 export const updatePayment = (id, data) => request(`/admin/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const getReport = () => request('/admin/reports')
+export const listUsers = () => request('/admin/users')
+export const listUserRoleOptions = () => request('/admin/users/role-options')
+export const createUser = data => request('/admin/users', { method: 'POST', body: JSON.stringify(data) })
+export const updateUser = (id, data) => request(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteUser = id => request(`/admin/users/${id}`, { method: 'DELETE' })
+export const listRoles = () => request('/admin/roles')
+export const createRole = data => request('/admin/roles', { method: 'POST', body: JSON.stringify(data) })
+export const updateRole = (id, data) => request(`/admin/roles/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const deleteRole = id => request(`/admin/roles/${id}`, { method: 'DELETE' })
+export const listPermissions = () => request('/admin/permissions')
 
 export async function downloadReport(format) {
   const response = await fetch(`${API_URL}/admin/reports/${format}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })
