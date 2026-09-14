@@ -35,6 +35,98 @@ const connection = await mysql.createConnection({
 
 try {
   await connection.query(schemaSql)
+
+  const [administratorColumns] = await connection.query(
+    `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'administrators'`,
+    [databaseName],
+  )
+  const administratorColumnsByName = new Map(
+    administratorColumns.map((column) => [column.COLUMN_NAME, column]),
+  )
+  const roleIdColumn = administratorColumnsByName.get('role_id')
+  if (!roleIdColumn) {
+    await connection.query(
+      `ALTER TABLE \`${databaseName}\`.administrators
+       ADD COLUMN role_id INT UNSIGNED NULL AFTER id`,
+    )
+  }
+
+  const [administratorRoleForeignKeys] = await connection.query(
+    `SELECT CONSTRAINT_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+     FROM information_schema.KEY_COLUMN_USAGE
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'administrators'
+       AND COLUMN_NAME = 'role_id' AND REFERENCED_TABLE_NAME IS NOT NULL`,
+    [databaseName],
+  )
+  const validAdministratorRoleForeignKeys = administratorRoleForeignKeys.filter((foreignKey) => (
+    foreignKey.REFERENCED_TABLE_NAME === 'roles' && foreignKey.REFERENCED_COLUMN_NAME === 'id'
+  ))
+  const invalidAdministratorRoleForeignKeys = administratorRoleForeignKeys.filter((foreignKey) => (
+    foreignKey.REFERENCED_TABLE_NAME !== 'roles' || foreignKey.REFERENCED_COLUMN_NAME !== 'id'
+  ))
+  if (invalidAdministratorRoleForeignKeys.length) {
+    throw new Error('administrators.role_id tiene una clave foranea distinta de roles.id')
+  }
+  let needsAdministratorRoleForeignKey = validAdministratorRoleForeignKeys.length === 0
+
+  // Los administradores anteriores al modulo de roles tenian acceso total.
+  // Tambien corrige valores 0 o roles inexistentes de instalaciones actualizadas manualmente.
+  await connection.query(
+    `UPDATE \`${databaseName}\`.administrators a
+     LEFT JOIN \`${databaseName}\`.roles r ON r.id = a.role_id
+     SET a.role_id = 1
+     WHERE a.role_id IS NULL OR r.id IS NULL`,
+  )
+
+  const roleIdNeedsNormalization = !roleIdColumn || (
+    roleIdColumn.DATA_TYPE !== 'int'
+    || !roleIdColumn.COLUMN_TYPE.toLowerCase().includes('unsigned')
+    || roleIdColumn.IS_NULLABLE !== 'NO'
+    || String(roleIdColumn.COLUMN_DEFAULT) !== '1'
+  )
+  if (roleIdNeedsNormalization) {
+    for (const foreignKey of validAdministratorRoleForeignKeys) {
+      const foreignKeyName = String(foreignKey.CONSTRAINT_NAME)
+      if (!/^[a-zA-Z0-9_$]+$/.test(foreignKeyName)) {
+        throw new Error('administrators.role_id tiene una clave foranea con nombre no valido')
+      }
+      await connection.query(
+        `ALTER TABLE \`${databaseName}\`.administrators DROP FOREIGN KEY \`${foreignKeyName}\``,
+      )
+      needsAdministratorRoleForeignKey = true
+    }
+    await connection.query(
+      `ALTER TABLE \`${databaseName}\`.administrators
+       MODIFY COLUMN role_id INT UNSIGNED NOT NULL DEFAULT 1`,
+    )
+  }
+
+  if (needsAdministratorRoleForeignKey) {
+    await connection.query(
+      `ALTER TABLE \`${databaseName}\`.administrators
+       ADD CONSTRAINT fk_administrator_role FOREIGN KEY (role_id) REFERENCES roles(id)`,
+    )
+  }
+
+  const updatedAtColumn = administratorColumnsByName.get('updated_at')
+  if (!updatedAtColumn) {
+    await connection.query(
+      `ALTER TABLE \`${databaseName}\`.administrators
+       ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at`,
+    )
+  } else {
+    const hasCurrentTimestampDefault = /^current_timestamp(?:\(\))?$/i.test(String(updatedAtColumn.COLUMN_DEFAULT))
+    const updatesAutomatically = /on update current_timestamp/i.test(updatedAtColumn.EXTRA)
+    if (updatedAtColumn.DATA_TYPE !== 'timestamp' || !hasCurrentTimestampDefault || !updatesAutomatically) {
+      await connection.query(
+        `ALTER TABLE \`${databaseName}\`.administrators
+         MODIFY COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
+      )
+    }
+  }
+
   const [registrationColumns] = await connection.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'registrations'`,
@@ -68,8 +160,9 @@ try {
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin12345!'
   const passwordHash = await bcrypt.hash(adminPassword, 12)
   await connection.query(
-    `INSERT INTO \`${databaseName}\`.administrators (name, email, password_hash)
-     VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), password_hash = VALUES(password_hash)`,
+    `INSERT INTO \`${databaseName}\`.administrators (role_id, name, email, password_hash)
+     VALUES (1, ?, ?, ?) ON DUPLICATE KEY UPDATE
+       name = VALUES(name), password_hash = VALUES(password_hash)`,
     ['Administrador UNDC', adminEmail, passwordHash],
   )
   console.log('Base de datos configurada correctamente')
