@@ -9,6 +9,7 @@ import AdminPaymentsPage from "./pages/AdminPaymentsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
 import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminRolesPage from "./pages/AdminRolesPage";
+import AdminAttendancePage from "./pages/AdminAttendancePage";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
 export default function App() {
@@ -43,6 +44,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute permission="roles.view">
             <AdminRolesPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/asistencias"
+        element={
+          <ProtectedAdminRoute permission="attendance.view">
+            <AdminAttendancePage />
           </ProtectedAdminRoute>
         }
       />

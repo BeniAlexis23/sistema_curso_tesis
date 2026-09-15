@@ -4,6 +4,10 @@ import { listPayments, updatePayment } from '../controllers/paymentController.js
 import { exportReportExcel, exportReportPdf, listReport } from '../controllers/reportController.js'
 import { createRole, deleteRole, listPermissions, listRoles, updateRole } from '../controllers/roleController.js'
 import { createUser, deleteUser, listUserRoleOptions, listUsers, updateUser } from '../controllers/userController.js'
+import {
+  assignModuleTeacher, checkIn, checkOut, exportAttendanceExcel,
+  exportAttendancePdf, listAttendance, updateAttendance, updateSession,
+} from '../controllers/attendanceController.js'
 import { authenticateAdmin } from '../middleware/authenticateAdmin.js'
 import { requirePermission } from '../middleware/requirePermission.js'
 import { uploadOneDocument } from '../middleware/uploadDocuments.js'
@@ -21,6 +25,14 @@ router.patch('/payments/:id', requirePermission('payments.manage'), updatePaymen
 router.get('/reports', requirePermission('reports.view'), listReport)
 router.get('/reports/pdf', requirePermission('reports.export'), exportReportPdf)
 router.get('/reports/excel', requirePermission('reports.export'), exportReportExcel)
+router.get('/attendance', requirePermission('attendance.view'), listAttendance)
+router.get('/attendance/export/excel', requirePermission('attendance.export'), exportAttendanceExcel)
+router.get('/attendance/export/pdf', requirePermission('attendance.export'), exportAttendancePdf)
+router.patch('/attendance/modules/:id/teacher', requirePermission('attendance.manage'), assignModuleTeacher)
+router.patch('/attendance/sessions/:id', requirePermission('attendance.manage'), updateSession)
+router.patch('/attendance/sessions/:id/times', requirePermission('attendance.manage'), updateAttendance)
+router.post('/attendance/sessions/:id/check-in', requirePermission('attendance.mark'), checkIn)
+router.post('/attendance/sessions/:id/check-out', requirePermission('attendance.mark'), checkOut)
 router.get('/registrations/:id/documents/:documentId', requirePermission('registrations.view'), downloadDocument)
 router.put('/registrations/:id/documents/:documentId', requirePermission('registrations.manage'), uploadOneDocument, replaceDocument)
 router.get('/users', requirePermission('users.view'), listUsers)

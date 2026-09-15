@@ -127,6 +127,26 @@ try {
     }
   }
 
+  if (!administratorColumnsByName.has('last_names')) {
+    await connection.query(
+      `ALTER TABLE \`${databaseName}\`.administrators
+       ADD COLUMN last_names VARCHAR(120) NULL AFTER name`,
+    )
+  }
+
+  // Retira estructuras de asistencia descartadas por los requerimientos finales.
+  await connection.query(`DROP TABLE IF EXISTS ${databaseName}.attendance_corrections`)
+  const [moduleSessionColumns] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'module_sessions'`,
+    [databaseName],
+  )
+  if (moduleSessionColumns.some((column) => column.COLUMN_NAME === 'late_tolerance_minutes')) {
+    await connection.query(
+      `ALTER TABLE ${databaseName}.module_sessions DROP COLUMN late_tolerance_minutes`,
+    )
+  }
+
   const [registrationColumns] = await connection.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'registrations'`,

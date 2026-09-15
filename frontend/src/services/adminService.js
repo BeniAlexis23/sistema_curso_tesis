@@ -22,6 +22,7 @@ export function getAdminHomePath() {
   if (permissions.includes('registrations.view')) return '/admin'
   if (permissions.includes('payments.view')) return '/admin/pagos'
   if (permissions.includes('reports.view')) return '/admin/reportes'
+  if (permissions.includes('attendance.view')) return '/admin/asistencias'
   if (permissions.includes('users.view')) return '/admin/usuarios'
   if (permissions.includes('roles.view')) return '/admin/roles'
   return '/admin/login'
@@ -69,6 +70,26 @@ export const createRole = data => request('/admin/roles', { method: 'POST', body
 export const updateRole = (id, data) => request(`/admin/roles/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
 export const deleteRole = id => request(`/admin/roles/${id}`, { method: 'DELETE' })
 export const listPermissions = () => request('/admin/permissions')
+export const getAttendance = () => request('/admin/attendance')
+export const assignAttendanceTeacher = (moduleId, teacherId) => request(`/admin/attendance/modules/${moduleId}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId }) })
+export const updateAttendanceSession = (sessionId, data) => request(`/admin/attendance/sessions/${sessionId}`, { method: 'PATCH', body: JSON.stringify(data) })
+export const updateTeacherAttendance = (sessionId, data) => request(`/admin/attendance/sessions/${sessionId}/times`, { method: 'PATCH', body: JSON.stringify(data) })
+export const markTeacherCheckIn = sessionId => request(`/admin/attendance/sessions/${sessionId}/check-in`, { method: 'POST' })
+export const markTeacherCheckOut = sessionId => request(`/admin/attendance/sessions/${sessionId}/check-out`, { method: 'POST' })
+
+export async function downloadAttendanceReport(format, moduleId = '') {
+  const query = moduleId ? `?moduleId=${moduleId}` : ''
+  const response = await fetch(`${API_URL}/admin/attendance/export/${format}${query}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })
+  if (!response.ok) {
+    const result = await readResponse(response)
+    throw new Error(result?.message || 'No se pudo generar el reporte de asistencias')
+  }
+  const disposition = response.headers.get('content-disposition') || ''
+  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] || `asistencia-docentes.${format === 'excel' ? 'xlsx' : 'pdf'}`
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url)
+}
 
 export async function downloadReport(format) {
   const response = await fetch(`${API_URL}/admin/reports/${format}`, { headers: { Authorization: `Bearer ${getAdminToken()}` } })

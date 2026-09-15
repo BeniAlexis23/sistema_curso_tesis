@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, CreditCard, Home, LogOut, Menu, ShieldCheck, UserCog, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, ClipboardCheck, CreditCard, Home, LogOut, Menu, ShieldCheck, UserCog, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { clearAdminToken, hasAdminPermission } from '../services/adminService'
@@ -8,6 +8,7 @@ const modules = [
   { to: '/admin', label: 'Inscripciones', icon: ClipboardCheck, end: true, permission: 'registrations.view' },
   { to: '/admin/pagos', label: 'Seguimiento de pagos', icon: CreditCard, permission: 'payments.view' },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3, permission: 'reports.view' },
+  { to: '/admin/asistencias', label: 'Asistencia docente', icon: CalendarCheck, permission: 'attendance.view' },
   { to: '/admin/usuarios', label: 'Usuarios', icon: UserCog, permission: 'users.view' },
   { to: '/admin/roles', label: 'Roles y permisos', icon: ShieldCheck, permission: 'roles.view' },
 ]
