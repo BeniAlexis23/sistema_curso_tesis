@@ -10,19 +10,20 @@ async function getActiveRole(roleId) {
 
 async function protectsLastSuperAdministrator(userId, nextRoleId, nextIsActive) {
   const [users] = await pool.query(
-    `SELECT a.is_active, r.is_system, a.role_id
-     FROM administrators a JOIN roles r ON r.id = a.role_id
+    `SELECT a.is_active, a.role_id
+     FROM administrators a
      WHERE a.id = ? LIMIT 1`,
     [userId],
   )
   if (!users.length) return { missing: true }
   const user = users[0]
-  const removesSuperAccess = user.is_system && user.is_active && (!nextIsActive || Number(nextRoleId) !== Number(user.role_id))
+  const removesSuperAccess = Number(user.role_id) === 1 && user.is_active
+    && (!nextIsActive || Number(nextRoleId) !== 1)
   if (!removesSuperAccess) return { user }
   const [[{ activeSuperAdministrators }]] = await pool.query(
     `SELECT COUNT(*) AS activeSuperAdministrators
-     FROM administrators a JOIN roles r ON r.id = a.role_id
-     WHERE a.is_active = 1 AND r.is_system = 1`,
+     FROM administrators a
+     WHERE a.is_active = 1 AND a.role_id = 1`,
   )
   return { user, isLastSuperAdministrator: Number(activeSuperAdministrators) <= 1 }
 }
@@ -30,7 +31,7 @@ async function protectsLastSuperAdministrator(userId, nextRoleId, nextIsActive) 
 export async function listUsers(_req, res, next) {
   try {
     const [users] = await pool.query(
-      `SELECT a.id, a.name, a.email, a.is_active, a.created_at, a.updated_at,
+      `SELECT a.id, a.name, a.last_names, a.email, a.is_active, a.created_at, a.updated_at,
               r.id AS role_id, r.name AS role_name, r.is_system AS role_is_system
        FROM administrators a JOIN roles r ON r.id = a.role_id
        ORDER BY a.name, a.id`,
@@ -49,17 +50,18 @@ export async function listUserRoleOptions(_req, res, next) {
 export async function createUser(req, res, next) {
   try {
     const name = req.body.name?.trim()
+    const lastNames = req.body.lastNames?.trim()
     const email = req.body.email?.trim().toLowerCase()
     const password = req.body.password
     const roleId = Number(req.body.roleId)
-    if (!name || name.length > 120 || !emailPattern.test(email || '') || email.length > 180 || typeof password !== 'string' || password.length < 8 || !Number.isInteger(roleId)) {
+    if (!name || name.length > 120 || !lastNames || lastNames.length > 120 || !emailPattern.test(email || '') || email.length > 180 || typeof password !== 'string' || password.length < 8 || !Number.isInteger(roleId)) {
       return res.status(400).json({ message: 'Revisa el nombre, correo, contraseña y rol ingresados' })
     }
     if (!(await getActiveRole(roleId))) return res.status(400).json({ message: 'El rol seleccionado no existe o está inactivo' })
     const passwordHash = await bcrypt.hash(password, 12)
     const [result] = await pool.query(
-      'INSERT INTO administrators (role_id, name, email, password_hash) VALUES (?, ?, ?, ?)',
-      [roleId, name, email, passwordHash],
+      'INSERT INTO administrators (role_id, name, last_names, email, password_hash) VALUES (?, ?, ?, ?, ?)',
+      [roleId, name, lastNames, email, passwordHash],
     )
     res.status(201).json({ message: 'Usuario creado correctamente', data: { userId: result.insertId } })
   } catch (error) {
@@ -71,12 +73,13 @@ export async function createUser(req, res, next) {
 export async function updateUser(req, res, next) {
   try {
     const name = req.body.name?.trim()
+    const lastNames = req.body.lastNames?.trim()
     const email = req.body.email?.trim().toLowerCase()
     const password = req.body.password
     const changesPassword = password !== undefined && password !== ''
     const roleId = Number(req.body.roleId)
     const isActive = req.body.isActive
-    if (!name || name.length > 120 || !emailPattern.test(email || '') || email.length > 180 || !Number.isInteger(roleId) || typeof isActive !== 'boolean' || (changesPassword && (typeof password !== 'string' || password.length < 8))) {
+    if (!name || name.length > 120 || !lastNames || lastNames.length > 120 || !emailPattern.test(email || '') || email.length > 180 || !Number.isInteger(roleId) || typeof isActive !== 'boolean' || (changesPassword && (typeof password !== 'string' || password.length < 8))) {
       return res.status(400).json({ message: 'Revisa los datos ingresados' })
     }
     if (!(await getActiveRole(roleId))) return res.status(400).json({ message: 'El rol seleccionado no existe o está inactivo' })
@@ -86,7 +89,7 @@ export async function updateUser(req, res, next) {
     if (protection.missing) return res.status(404).json({ message: 'Usuario no encontrado' })
     if (protection.isLastSuperAdministrator) return res.status(409).json({ message: 'Debe permanecer al menos un super administrador activo' })
 
-    const values = [roleId, name, email, isActive]
+    const values = [roleId, name, lastNames, email, isActive]
     let passwordSql = ''
     if (changesPassword) {
       passwordSql = ', password_hash = ?'
@@ -94,7 +97,7 @@ export async function updateUser(req, res, next) {
     }
     values.push(req.params.id)
     await pool.query(
-      `UPDATE administrators SET role_id = ?, name = ?, email = ?, is_active = ?${passwordSql} WHERE id = ?`,
+      `UPDATE administrators SET role_id = ?, name = ?, last_names = ?, email = ?, is_active = ?${passwordSql} WHERE id = ?`,
       values,
     )
     res.json({ message: 'Usuario actualizado correctamente' })
@@ -110,6 +113,16 @@ export async function deleteUser(req, res, next) {
     const protection = await protectsLastSuperAdministrator(req.params.id, null, false)
     if (protection.missing) return res.status(404).json({ message: 'Usuario no encontrado' })
     if (protection.isLastSuperAdministrator) return res.status(409).json({ message: 'Debe permanecer al menos un super administrador activo' })
+    const [[usage]] = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM course_modules WHERE teacher_id = ?) AS assignedModules,
+         (SELECT COUNT(*) FROM module_sessions WHERE teacher_id = ?) AS assignedSessions,
+         (SELECT COUNT(*) FROM teacher_attendances WHERE teacher_id = ?) AS attendances`,
+      [req.params.id, req.params.id, req.params.id],
+    )
+    if (Number(usage.assignedModules) || Number(usage.assignedSessions) || Number(usage.attendances)) {
+      return res.status(409).json({ message: 'No puedes eliminar un usuario vinculado al control de asistencias; retira sus asignaciones o consérvalo si ya forma parte del historial' })
+    }
     await pool.query('DELETE FROM administrators WHERE id = ?', [req.params.id])
     res.json({ message: 'Usuario eliminado correctamente' })
   } catch (error) { next(error) }

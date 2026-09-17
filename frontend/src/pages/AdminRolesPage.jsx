@@ -16,6 +16,44 @@ const permissionDependencies = {
   'reports.export': 'reports.view',
   'users.manage': 'users.view',
   'roles.manage': 'roles.view',
+  'attendance.mark': 'attendance.view',
+  'attendance.manage': 'attendance.view',
+  'attendance.export': 'attendance.view',
+  'attendance.approve': 'attendance.view',
+  'registration_attendance.view': 'attendance.view',
+  'registration_attendance.mark': 'registration_attendance.view',
+  'registration_attendance.export': 'registration_attendance.view',
+}
+
+function addRequiredPermissions(selectedIds, permissions) {
+  const selected = new Set(selectedIds)
+  const idsByCode = new Map(permissions.map(permission => [permission.code, permission.id]))
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const permission of permissions) {
+      if (!selected.has(permission.id)) continue
+      const requiredId = idsByCode.get(permissionDependencies[permission.code])
+      if (requiredId && !selected.has(requiredId)) { selected.add(requiredId); changed = true }
+    }
+  }
+  return [...selected]
+}
+
+function removeDependentPermissions(selectedIds, removedIds, permissions) {
+  const selected = new Set(selectedIds)
+  const removed = new Set(removedIds)
+  const idsByCode = new Map(permissions.map(permission => [permission.code, permission.id]))
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const permission of permissions) {
+      if (!selected.has(permission.id) || removed.has(permission.id)) continue
+      const requiredId = idsByCode.get(permissionDependencies[permission.code])
+      if (requiredId && removed.has(requiredId)) { removed.add(permission.id); changed = true }
+    }
+  }
+  return selectedIds.filter(id => !removed.has(id))
 }
 
 export default function AdminRolesPage() {
@@ -59,18 +97,10 @@ export default function AdminRolesPage() {
   }
 
   const togglePermission = permissionId => {
-    const permission = permissions.find(item => item.id === permissionId)
-    const isSelected = form.permissionIds.includes(permissionId)
-    if (isSelected) {
-      const dependentIds = permissions
-        .filter(item => permissionDependencies[item.code] === permission.code)
-        .map(item => item.id)
-      setForm({ ...form, permissionIds: form.permissionIds.filter(id => id !== permissionId && !dependentIds.includes(id)) })
-      return
-    }
-    const requiredCode = permissionDependencies[permission.code]
-    const requiredId = permissions.find(item => item.code === requiredCode)?.id
-    setForm({ ...form, permissionIds: [...new Set([...form.permissionIds, permissionId, ...(requiredId ? [requiredId] : [])])] })
+    const permissionIds = form.permissionIds.includes(permissionId)
+      ? removeDependentPermissions(form.permissionIds, [permissionId], permissions)
+      : addRequiredPermissions([...form.permissionIds, permissionId], permissions)
+    setForm({ ...form, permissionIds })
   }
 
   const toggleModule = modulePermissions => {
@@ -79,8 +109,8 @@ export default function AdminRolesPage() {
     setForm({
       ...form,
       permissionIds: allSelected
-        ? form.permissionIds.filter(id => !moduleIds.includes(id))
-        : [...new Set([...form.permissionIds, ...moduleIds])],
+        ? removeDependentPermissions(form.permissionIds, moduleIds, permissions)
+        : addRequiredPermissions([...form.permissionIds, ...moduleIds], permissions),
     })
   }
 

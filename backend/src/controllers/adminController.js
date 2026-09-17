@@ -12,7 +12,7 @@ export async function login(req, res, next) {
     const password = req.body.password
     if (!email || !password) return res.status(400).json({ message: 'Correo y contraseña son obligatorios' })
     const [admins] = await pool.query(
-      `SELECT a.id, a.name, a.email, a.password_hash, r.id AS role_id, r.name AS role_name
+      `SELECT a.id, a.name, a.last_names, a.email, a.password_hash, r.id AS role_id, r.name AS role_name
        FROM administrators a JOIN roles r ON r.id = a.role_id AND r.is_active = 1
        WHERE a.email = ? AND a.is_active = 1 LIMIT 1`,
       [email],
@@ -26,6 +26,7 @@ export async function login(req, res, next) {
     const admin = {
       id: admins[0].id,
       name: admins[0].name,
+      lastNames: admins[0].last_names,
       email: admins[0].email,
       role: { id: admins[0].role_id, name: admins[0].role_name },
       permissions: permissions.map(permission => permission.code),
