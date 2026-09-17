@@ -20,6 +20,10 @@ async function validatePermissions(connection, permissionIds) {
     'attendance.mark': 'attendance.view',
     'attendance.manage': 'attendance.view',
     'attendance.export': 'attendance.view',
+    'attendance.approve': 'attendance.view',
+    'registration_attendance.view': 'attendance.view',
+    'registration_attendance.mark': 'registration_attendance.view',
+    'registration_attendance.export': 'registration_attendance.view',
   }
   const missing = Object.entries(dependencies).find(([permission, required]) => codes.has(permission) && !codes.has(required))
   if (missing) return { valid: false, message: `El permiso ${missing[0]} requiere también ${missing[1]}` }

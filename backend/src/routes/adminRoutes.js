@@ -6,8 +6,13 @@ import { createRole, deleteRole, listPermissions, listRoles, updateRole } from '
 import { createUser, deleteUser, listUserRoleOptions, listUsers, updateUser } from '../controllers/userController.js'
 import {
   assignModuleTeacher, checkIn, checkOut, exportAttendanceExcel,
-  exportAttendancePdf, listAttendance, updateAttendance, updateSession,
+  exportAttendancePdf, listAttendance, updateAttendance, updateAttendanceConformity, updateSession,
 } from '../controllers/attendanceController.js'
+import {
+  exportAllRegistrationAttendanceExcel, exportAllRegistrationAttendancePdf,
+  exportRegistrationAttendanceExcel, exportRegistrationAttendancePdf,
+  listRegistrationAttendance, listRegistrationAttendanceSessions, saveRegistrationAttendance,
+} from '../controllers/registrationAttendanceController.js'
 import { authenticateAdmin } from '../middleware/authenticateAdmin.js'
 import { requirePermission } from '../middleware/requirePermission.js'
 import { uploadOneDocument } from '../middleware/uploadDocuments.js'
@@ -28,11 +33,19 @@ router.get('/reports/excel', requirePermission('reports.export'), exportReportEx
 router.get('/attendance', requirePermission('attendance.view'), listAttendance)
 router.get('/attendance/export/excel', requirePermission('attendance.export'), exportAttendanceExcel)
 router.get('/attendance/export/pdf', requirePermission('attendance.export'), exportAttendancePdf)
+router.patch('/attendance/conformity', requirePermission('attendance.approve'), updateAttendanceConformity)
 router.patch('/attendance/modules/:id/teacher', requirePermission('attendance.manage'), assignModuleTeacher)
 router.patch('/attendance/sessions/:id', requirePermission('attendance.manage'), updateSession)
 router.patch('/attendance/sessions/:id/times', requirePermission('attendance.manage'), updateAttendance)
 router.post('/attendance/sessions/:id/check-in', requirePermission('attendance.mark'), checkIn)
 router.post('/attendance/sessions/:id/check-out', requirePermission('attendance.mark'), checkOut)
+router.get('/attendance/sessions/:id/students', requirePermission('registration_attendance.view'), listRegistrationAttendance)
+router.put('/attendance/sessions/:id/students', requirePermission('registration_attendance.mark'), saveRegistrationAttendance)
+router.get('/attendance/students/exportable-sessions', requirePermission('registration_attendance.export'), listRegistrationAttendanceSessions)
+router.get('/attendance/students/export/excel', requirePermission('registration_attendance.export'), exportAllRegistrationAttendanceExcel)
+router.get('/attendance/students/export/pdf', requirePermission('registration_attendance.export'), exportAllRegistrationAttendancePdf)
+router.get('/attendance/sessions/:id/students/export/excel', requirePermission('registration_attendance.export'), exportRegistrationAttendanceExcel)
+router.get('/attendance/sessions/:id/students/export/pdf', requirePermission('registration_attendance.export'), exportRegistrationAttendancePdf)
 router.get('/registrations/:id/documents/:documentId', requirePermission('registrations.view'), downloadDocument)
 router.put('/registrations/:id/documents/:documentId', requirePermission('registrations.manage'), uploadOneDocument, replaceDocument)
 router.get('/users', requirePermission('users.view'), listUsers)

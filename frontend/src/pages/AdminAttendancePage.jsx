@@ -1,5 +1,5 @@
 import {
-  CalendarCheck, CheckCircle2, Clock3, Download, FileSpreadsheet, FileText,
+  BadgeCheck, ClipboardList, Clock3, Download, FileSpreadsheet, FileText,
   LogIn, LogOut, Pencil, UserRoundCheck, X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -9,7 +9,8 @@ import AdminLayout from '../components/AdminLayout'
 import {
   assignAttendanceTeacher, clearAdminToken,
   downloadAttendanceReport, getAdminSession, getAttendance, hasAdminPermission,
-  markTeacherCheckIn, markTeacherCheckOut, updateAttendanceSession, updateTeacherAttendance,
+  markTeacherCheckIn, markTeacherCheckOut, updateAttendanceConformity,
+  updateAttendanceSession, updateTeacherAttendance,
 } from '../services/adminService'
 
 const statusLabels = { pending: 'Pendiente de entrada', checked_in: 'Salida pendiente', completed: 'Asistencia completada' }
@@ -23,11 +24,14 @@ export default function AdminAttendancePage() {
   const navigate = useNavigate()
   const session = getAdminSession()
   const canMark = hasAdminPermission('attendance.mark')
+  const canViewRegistrationAttendance = hasAdminPermission('registration_attendance.view')
   const canExport = hasAdminPermission('attendance.export')
+  const canApprove = hasAdminPermission('attendance.approve')
   const [rows, setRows] = useState([])
   const [teachers, setTeachers] = useState([])
   const [canManage, setCanManage] = useState(false)
   const [currentTime, setCurrentTime] = useState('')
+  const [conformityAt, setConformityAt] = useState(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState('')
   const [exporting, setExporting] = useState('')
@@ -35,6 +39,10 @@ export default function AdminAttendancePage() {
   const [assignment, setAssignment] = useState(null)
   const [sessionForm, setSessionForm] = useState(null)
   const [attendanceForm, setAttendanceForm] = useState(null)
+  const isAssignedTeacher = canMark && rows.some(row => Number(row.teacher_id) === Number(session?.id))
+  const teacherName = session?.role?.name === 'Docente' || isAssignedTeacher
+    ? [session?.name, session?.lastNames].filter(Boolean).join(' ').trim()
+    : ''
 
   const load = async () => {
     setLoading(true)
@@ -44,6 +52,7 @@ export default function AdminAttendancePage() {
       setTeachers(response.data.teachers)
       setCanManage(Boolean(response.data.canManage))
       setCurrentTime(response.data.currentTime)
+      setConformityAt(response.data.conformityAt || null)
     } catch (error) {
       if (error.status === 401) { clearAdminToken(); navigate('/admin/login', { replace: true }) }
       else Swal.fire('Error', error.message, 'error')
@@ -69,9 +78,6 @@ export default function AdminAttendancePage() {
   }, [rows])
 
   const visibleModules = moduleFilter ? modules.filter(module => String(module.id) === moduleFilter) : modules
-  const completed = rows.filter(row => row.attendance_status === 'completed').length
-  const openEntries = rows.filter(row => row.attendance_status === 'checked_in').length
-  const assignedModules = modules.filter(module => module.teacherId).length
 
   const saveAssignment = async event => {
     event.preventDefault()
@@ -96,6 +102,17 @@ export default function AdminAttendancePage() {
 
   const saveSession = async event => {
     event.preventDefault()
+    const hasAttendance = Boolean(sessionForm.session.attendance_id)
+      || Boolean(Number(sessionForm.session.has_student_attendance))
+    if (hasAttendance) {
+      const confirmation = await Swal.fire({
+        title: '¿Actualizar esta sesión?',
+        text: 'La sesión ya tiene asistencias registradas. Estas se conservarán sin cambios.',
+        icon: 'warning', showCancelButton: true,
+        confirmButtonText: 'Actualizar sesión', cancelButtonText: 'Cancelar',
+      })
+      if (!confirmation.isConfirmed) return
+    }
     setWorking('session')
     try {
       await updateAttendanceSession(sessionForm.session.session_id, sessionForm)
@@ -151,37 +168,79 @@ export default function AdminAttendancePage() {
     finally { setExporting('') }
   }
 
+  const toggleConformity = async () => {
+    const enabled = !conformityAt
+    const confirmation = await Swal.fire({
+      title: enabled ? '¿Dar conformidad a las asistencias?' : '¿Retirar la conformidad?',
+      text: enabled
+        ? 'Los PDF mostrarán la conformidad del decano con la fecha de registro.'
+        : 'Los PDF dejarán de mostrar la conformidad hasta que vuelva a activarse.',
+      icon: enabled ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonText: enabled ? 'Dar conformidad' : 'Retirar conformidad',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: enabled ? '#16835a' : '#b45309',
+    })
+    if (!confirmation.isConfirmed) return
+    setWorking('conformity')
+    try {
+      const response = await updateAttendanceConformity(enabled)
+      setConformityAt(response.data.conformityAt || null)
+      Swal.fire({
+        title: enabled ? 'Conformidad activada' : 'Conformidad retirada',
+        icon: 'success', timer: 1500, showConfirmButton: false,
+      })
+    } catch (error) { Swal.fire('No se pudo actualizar', error.message, 'error') }
+    finally { setWorking('') }
+  }
+
   return <AdminLayout>
     <main className="mx-auto w-[calc(100%-2rem)] max-w-[1240px] py-8 lg:py-10">
       <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
-        <div><span className="section-kicker">CONTROL ACADÉMICO · HORA DEL SERVIDOR</span><h1 className="font-display mt-2 text-3xl font-extrabold text-undc-navy lg:text-4xl">Asistencia docente</h1><p className="mt-1 text-sm text-slate-500">Entrada y salida de los docentes responsables de cada módulo.</p></div>
-        {canManage && <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700" value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}><option value="">Todos los módulos</option>{modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}</select>
+        <div><h1 className="font-display text-3xl font-extrabold text-undc-navy lg:text-4xl">Asistencias</h1>{teacherName
+          ? <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-sm"><span className="text-xs font-extrabold uppercase tracking-wider text-undc-cyan">Docente</span><b className="font-display text-base text-undc-navy">{teacherName}</b></p>
+          : <p className="mt-1 text-sm text-slate-500">Entrada, salida y estudiantes por sesión.</p>}</div>
+        {(canManage || canExport || canApprove) && <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {canManage && <select className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700" value={moduleFilter} onChange={event => setModuleFilter(event.target.value)}><option value="">Todos los módulos</option>{modules.map(module => <option key={module.id} value={module.id}>{module.name}</option>)}</select>}
+          {canApprove && <button
+            type="button"
+            role="switch"
+            aria-checked={Boolean(conformityAt)}
+            title={conformityAt ? 'Los PDF incluyen la conformidad del decano' : 'Los PDF todavía no incluyen la conformidad del decano'}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-left text-sm font-bold transition-colors disabled:opacity-60 ${conformityAt ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-700'}`}
+            disabled={working === 'conformity'}
+            onClick={toggleConformity}
+          ><BadgeCheck size={18} /><span className="leading-tight"><span className="block text-[10px] font-extrabold uppercase tracking-wide">Conformidad PDF</span><span className="block">{working === 'conformity' ? 'Actualizando…' : conformityAt ? 'Activa' : 'Pendiente'}</span></span></button>}
           {canExport && <><button className="report-export report-export-pdf" disabled={Boolean(exporting)} onClick={() => exportFile('pdf')}><FileText size={17} />{exporting === 'pdf' ? 'Generando…' : 'PDF'}<Download size={14} /></button><button className="report-export report-export-excel" disabled={Boolean(exporting)} onClick={() => exportFile('excel')}><FileSpreadsheet size={17} />{exporting === 'excel' ? 'Generando…' : 'Excel'}<Download size={14} /></button></>}
         </div>}
       </div>
 
-      <section className="my-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5"><UserRoundCheck className="text-undc-cyan" /><small className="mt-3 block text-xs font-bold text-slate-400">MÓDULOS ASIGNADOS</small><b className="font-display text-2xl text-undc-navy">{assignedModules}/{modules.length || 3}</b></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5"><CheckCircle2 className="text-emerald-600" /><small className="mt-3 block text-xs font-bold text-slate-400">ASISTENCIAS COMPLETAS</small><b className="font-display text-2xl text-undc-navy">{completed}</b></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5"><Clock3 className="text-amber-500" /><small className="mt-3 block text-xs font-bold text-slate-400">SALIDAS PENDIENTES</small><b className="font-display text-2xl text-undc-navy">{openEntries}</b></div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5"><CalendarCheck className="text-undc-blue" /><small className="mt-3 block text-xs font-bold text-slate-400">SESIONES PROGRAMADAS</small><b className="font-display text-2xl text-undc-navy">{rows.length}</b></div>
-      </section>
+      {loading && <section className="mt-7 rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">Cargando asistencias…</section>}
+      {!loading && !visibleModules.length && <section className="mt-7 rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">No hay sesiones disponibles.</section>}
 
-      {loading && <section className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">Cargando asistencias…</section>}
-      {!loading && !visibleModules.length && <section className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">No tienes sesiones asignadas todavía.</section>}
-
-      <div className="space-y-6">{!loading && visibleModules.map(module => <section key={module.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-7 space-y-6">{!loading && visibleModules.map(module => <section key={module.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <header className="flex flex-col justify-between gap-4 border-b border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-center">
-          <div><span className="text-xs font-extrabold uppercase tracking-wider text-undc-cyan">Módulo {module.number}</span><h2 className="font-display mt-1 text-xl font-extrabold text-undc-navy">{module.name}</h2><p className="mt-1 text-sm text-slate-500">Docente actual: <b className="text-slate-700">{module.teacherName || 'Pendiente de asignación'}</b></p></div>
+          <div><span className="text-xs font-extrabold uppercase tracking-wider text-undc-cyan">Módulo {module.number}</span><h2 className="font-display mt-1 text-xl font-extrabold text-undc-navy">{module.name}</h2>{canManage && <p className="mt-1 text-sm text-slate-500">Docente: <b className="text-slate-700">{module.teacherName || 'Sin asignar'}</b></p>}</div>
           {canManage && <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-undc-blue px-4 text-sm font-bold text-white" onClick={() => setAssignment({ module, teacherId: module.teacherId ? String(module.teacherId) : '' })}><UserRoundCheck size={17} />Asignar docente</button>}
         </header>
-        <div className="overflow-x-auto"><table className="w-full min-w-[940px] text-left text-sm"><thead className="bg-white text-xs uppercase tracking-wider text-slate-500"><tr><th className="p-4">Sesión</th><th className="p-4">Fecha y modalidad</th><th className="p-4">Docente</th><th className="p-4">Entrada</th><th className="p-4">Salida</th><th className="p-4">Estado</th><th className="p-4"></th></tr></thead><tbody className="divide-y divide-slate-100">{module.sessions.map(row => {
+        <div className="overflow-x-auto"><table className={`w-full table-fixed text-left text-sm ${canManage ? 'min-w-[1000px]' : 'min-w-[860px]'}`}><colgroup><col className="w-[30%]" /><col className="w-[16%]" /><col className="w-[8%]" /><col className="w-[8%]" /><col className="w-[13%]" /><col className="w-[25%]" /></colgroup><thead className="bg-white text-xs uppercase tracking-wider text-slate-500"><tr><th className="p-4">Sesión y tema</th><th className="p-4">Fecha y modalidad</th><th className="p-4">Entrada</th><th className="p-4">Salida</th><th className="p-4">Estado</th><th className="p-4 text-right">Acciones</th></tr></thead><tbody className="divide-y divide-slate-100">{module.sessions.map(row => {
           const isOwn = Number(row.teacher_id) === Number(session?.id)
-          return <tr key={row.session_id}><td className="p-4"><b className="block text-undc-navy">Sesión {row.session_number}</b><small className="mt-1 block max-w-[260px] text-slate-500">{row.topic}</small></td><td className="p-4"><b className="block text-slate-700">{dateLabel(row.scheduled_start)}</b><small className="mt-1 block text-slate-500">{timeLabel(row.scheduled_start)}–{timeLabel(row.scheduled_end)} · {modalityLabels[row.modality]}</small></td><td className="p-4"><b className="block text-slate-700">{`${row.teacher_name || ''} ${row.teacher_last_names || ''}`.trim() || 'Sin asignar'}</b><small className="mt-1 block text-slate-500">{row.teacher_email || '—'}</small></td><td className="p-4 font-semibold text-slate-700">{timeLabel(row.check_in_at)}</td><td className="p-4 font-semibold text-slate-700">{timeLabel(row.check_out_at)}</td><td className="p-4"><span className={`status ${row.attendance_status === 'completed' ? 'approved' : 'pending'}`}>{statusLabels[row.attendance_status]}</span></td><td className="p-4"><div className="flex justify-end gap-2">{canMark && isOwn && row.attendance_status === 'pending' && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-3 font-bold text-white disabled:opacity-60" disabled={working === `in-${row.session_id}`} onClick={() => mark(row, 'in')}><LogIn size={16} />Entrada</button>}{canMark && isOwn && row.attendance_status === 'checked_in' && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-undc-blue px-3 font-bold text-white disabled:opacity-60" disabled={working === `out-${row.session_id}`} onClick={() => mark(row, 'out')}><LogOut size={16} />Salida</button>}{canManage && <button aria-label="Editar sesión" className="grid size-10 place-items-center rounded-lg bg-blue-50 text-undc-blue" onClick={() => openSessionEditor(row)}><Pencil size={16} /></button>}{canManage && row.teacher_id && (row.attendance_id || row.scheduled_start <= currentTime) && <button aria-label="Editar marcación" className="grid size-10 place-items-center rounded-lg bg-amber-50 text-amber-700" onClick={() => openAttendanceEditor(row)}><Clock3 size={16} /></button>}</div></td></tr>
+          return <tr key={row.session_id}>
+            <td className="p-4 align-top"><b className="block text-undc-navy">Sesión {row.session_number}</b><p className="mt-1 whitespace-pre-line break-words text-xs leading-5 text-slate-500">{row.topic || 'Sin tema registrado'}</p></td>
+            <td className="p-4 align-middle"><b className="block text-slate-700">{dateLabel(row.scheduled_start)}</b><small className="mt-1 block text-slate-500">{timeLabel(row.scheduled_start)}–{timeLabel(row.scheduled_end)} · {modalityLabels[row.modality]}</small></td>
+            <td className="p-4 align-middle font-semibold text-slate-700">{timeLabel(row.check_in_at)}</td>
+            <td className="p-4 align-middle font-semibold text-slate-700">{timeLabel(row.check_out_at)}</td>
+            <td className="p-4 align-middle"><span className={`status ${row.attendance_status === 'completed' ? 'approved' : 'pending'}`}>{statusLabels[row.attendance_status]}</span></td>
+            <td className="p-4 align-middle"><div className="flex justify-end gap-2">
+              {canMark && isOwn && row.attendance_status === 'pending' && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-3 font-bold text-white disabled:opacity-60" disabled={working === `in-${row.session_id}`} onClick={() => mark(row, 'in')}><LogIn size={16} />Entrada</button>}
+              {canMark && isOwn && row.attendance_status === 'checked_in' && <button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-undc-blue px-3 font-bold text-white disabled:opacity-60" disabled={working === `out-${row.session_id}`} onClick={() => mark(row, 'out')}><LogOut size={16} />Salida</button>}
+              {canViewRegistrationAttendance && (canManage || isOwn) && <button aria-label={`Asistencia de estudiantes de la sesión ${row.session_number}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50 px-3 font-bold text-undc-blue" onClick={() => navigate(`/admin/asistencias/sesiones/${row.session_id}/estudiantes`)}><ClipboardList size={16} />Asistencia</button>}
+              {canManage && <button aria-label={`Editar sesión ${row.session_number}`} className="grid size-10 place-items-center rounded-lg bg-blue-50 text-undc-blue" onClick={() => openSessionEditor(row)}><Pencil size={16} /></button>}
+              {canManage && row.teacher_id && (row.attendance_id || row.scheduled_start <= currentTime) && <button aria-label={`Editar marcación de la sesión ${row.session_number}`} className="grid size-10 place-items-center rounded-lg bg-amber-50 text-amber-700" onClick={() => openAttendanceEditor(row)}><Clock3 size={16} /></button>}
+            </div></td>
+          </tr>
         })}</tbody></table></div>
       </section>)}</div>
-      <p className="mt-5 text-xs text-slate-400">Hora actual del servidor: {dateLabel(currentTime)} {timeLabel(currentTime)} · Zona horaria de Perú (UTC-5).</p>
     </main>
 
     {assignment && <div className="admin-overlay" onMouseDown={event => event.target === event.currentTarget && setAssignment(null)}><form className="review-panel" onSubmit={saveAssignment}><header><div><span className="section-kicker">ASIGNACIÓN DEL MÓDULO</span><h2>{assignment.module.name}</h2><p>El cambio se aplicará a sesiones futuras sin marcación.</p></div><button type="button" aria-label="Cerrar" onClick={() => setAssignment(null)}><X /></button></header><div className="review-body"><label><span className="mb-2 block text-sm font-bold text-slate-700">Docente responsable</span><select className="min-h-12 w-full rounded-lg border border-slate-300 bg-white px-3" value={assignment.teacherId} onChange={event => setAssignment({ ...assignment, teacherId: event.target.value })}><option value="">Pendiente de asignación</option>{teachers.map(teacher => <option key={teacher.id} value={teacher.id}>{fullName(teacher)} · {teacher.email}</option>)}</select></label><div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">Las asistencias ya registradas conservarán al docente original. Solo se actualizarán sesiones pendientes que todavía no hayan iniciado.</div></div><footer><span>Acciones de asignación</span><div><button type="button" className="observe" onClick={() => setAssignment(null)}>Cancelar</button><button className="approve" disabled={working === 'assignment'}>{working === 'assignment' ? 'Guardando…' : 'Guardar asignación'}</button></div></footer></form></div>}

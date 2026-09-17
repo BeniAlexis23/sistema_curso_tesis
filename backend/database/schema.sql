@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS courses (
   registration_fee DECIMAL(10,2) NOT NULL,
   first_module_fee DECIMAL(10,2) NOT NULL,
   schedule_document_url VARCHAR(500) NULL,
+  attendance_conformity_at DATETIME NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -154,6 +155,18 @@ CREATE TABLE IF NOT EXISTS teacher_attendances (
   UNIQUE KEY uq_teacher_attendance_session (session_id)
 );
 
+CREATE TABLE IF NOT EXISTS registration_attendances (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  session_id INT UNSIGNED NOT NULL,
+  registration_id INT UNSIGNED NOT NULL,
+  status ENUM('present', 'absent') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_registration_attendance_session FOREIGN KEY (session_id) REFERENCES module_sessions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_registration_attendance_registration FOREIGN KEY (registration_id) REFERENCES registrations(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_registration_attendance_session_registration (session_id, registration_id)
+);
+
 INSERT INTO courses (name, faculty, registration_start, registration_end, course_start, modality, class_schedule, tutoring_hours, registration_fee, first_module_fee)
 SELECT 'Curso Taller de Investigación Aplicada', 'Facultad de Ingeniería', '2026-09-14', '2026-09-18', '2026-09-20', 'Semipresencial', 'Domingos, 09:00 - 13:30', 4, 700.00, 850.00
 WHERE NOT EXISTS (SELECT 1 FROM courses);
@@ -171,25 +184,29 @@ VALUES (1, 'Super Administrador', 'Acceso completo a todos los módulos y config
 ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), is_system = TRUE, is_active = TRUE;
 
 INSERT INTO roles (name, description, is_system, is_active)
-VALUES ('Docente', 'Registra su entrada y salida en las sesiones del módulo asignado.', TRUE, TRUE)
-ON DUPLICATE KEY UPDATE description = VALUES(description), is_system = TRUE, is_active = TRUE;
+VALUES ('Docente', 'Marca su entrada y salida y registra la asistencia de estudiantes en sus sesiones.', TRUE, TRUE)
+ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), is_system = TRUE, is_active = TRUE;
 
 INSERT INTO permissions (code, name, description, module) VALUES
-  ('registrations.view', 'Ver inscripciones', 'Consultar inscripciones y sus documentos.', 'Inscripciones'),
-  ('registrations.manage', 'Gestionar inscripciones', 'Editar datos, documentos y estados de inscripción.', 'Inscripciones'),
-  ('registrations.delete', 'Eliminar inscripciones', 'Eliminar inscripciones, pagos y documentos asociados.', 'Inscripciones'),
-  ('payments.view', 'Ver pagos', 'Consultar cronogramas y estados de pago.', 'Pagos'),
-  ('payments.manage', 'Gestionar pagos', 'Registrar o revertir pagos y sus observaciones.', 'Pagos'),
-  ('reports.view', 'Ver reportes', 'Consultar el reporte consolidado.', 'Reportes'),
-  ('reports.export', 'Exportar reportes', 'Descargar reportes en PDF y Excel.', 'Reportes'),
-  ('users.view', 'Ver usuarios', 'Consultar usuarios administrativos.', 'Seguridad'),
-  ('users.manage', 'Gestionar usuarios', 'Crear, editar, activar, desactivar y eliminar usuarios.', 'Seguridad'),
-  ('roles.view', 'Ver roles y permisos', 'Consultar roles y el catálogo de permisos.', 'Seguridad'),
-  ('roles.manage', 'Gestionar roles y permisos', 'Crear, editar y eliminar roles y asignar sus permisos.', 'Seguridad'),
-  ('attendance.view', 'Ver asistencias', 'Consultar módulos, sesiones y marcaciones de docentes.', 'Asistencias'),
-  ('attendance.mark', 'Marcar asistencia propia', 'Registrar la entrada y salida de las sesiones asignadas.', 'Asistencias'),
-  ('attendance.manage', 'Gestionar asistencias', 'Configurar sesiones, asignar docentes y editar marcaciones.', 'Asistencias'),
-  ('attendance.export', 'Exportar asistencias', 'Descargar el control de asistencias en Excel y PDF.', 'Asistencias')
+  ('registrations.view', 'Ver inscripciones', 'Consultar inscripciones y documentos enviados.', 'Inscripciones'),
+  ('registrations.manage', 'Gestionar inscripciones', 'Editar inscripciones, documentos y estados.', 'Inscripciones'),
+  ('registrations.delete', 'Eliminar inscripciones', 'Eliminar una inscripción con sus pagos y documentos.', 'Inscripciones'),
+  ('payments.view', 'Ver pagos', 'Consultar cuotas, vencimientos y pagos.', 'Pagos'),
+  ('payments.manage', 'Gestionar pagos', 'Marcar pagos como pagados o pendientes y editar notas.', 'Pagos'),
+  ('reports.view', 'Ver reportes', 'Consultar el resumen de inscripciones y pagos.', 'Reportes'),
+  ('reports.export', 'Exportar reportes', 'Descargar el resumen de inscripciones y pagos en PDF o Excel.', 'Reportes'),
+  ('users.view', 'Ver usuarios', 'Consultar usuarios del panel administrativo.', 'Seguridad'),
+  ('users.manage', 'Gestionar usuarios', 'Crear, editar, activar, desactivar o eliminar usuarios.', 'Seguridad'),
+  ('roles.view', 'Ver roles y permisos', 'Consultar roles y permisos disponibles.', 'Seguridad'),
+  ('roles.manage', 'Gestionar roles y permisos', 'Crear, editar o eliminar roles y asignar permisos.', 'Seguridad'),
+  ('attendance.view', 'Ver asistencia docente', 'Consultar sesiones asignadas y marcas de entrada y salida; con gestión, todas.', 'Asistencia docente'),
+  ('attendance.mark', 'Marcar asistencia propia', 'Registrar mi entrada y salida en las sesiones asignadas.', 'Asistencia docente'),
+  ('attendance.manage', 'Gestionar asistencia docente', 'Asignar docentes, configurar sesiones y editar entradas y salidas.', 'Asistencia docente'),
+  ('attendance.export', 'Exportar asistencia docente', 'Descargar asistencias docentes de todos los módulos en PDF o Excel.', 'Asistencia docente'),
+  ('attendance.approve', 'Dar conformidad a asistencias', 'Activar o retirar la conformidad del decano que aparece en los PDF de asistencia.', 'Asistencias'),
+  ('registration_attendance.view', 'Ver asistencia de estudiantes', 'Consultar Presente o Ausente por sesión asignada; con gestión o exportación, todas.', 'Asistencia de estudiantes'),
+  ('registration_attendance.mark', 'Registrar asistencia de estudiantes', 'Guardar y editar Presente o Ausente en las sesiones asignadas.', 'Asistencia de estudiantes'),
+  ('registration_attendance.export', 'Exportar asistencia de estudiantes', 'Descargar asistencias guardadas de cualquier sesión en PDF o Excel.', 'Asistencia de estudiantes')
 ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), module = VALUES(module);
 
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
@@ -197,7 +214,7 @@ SELECT 1, id FROM permissions;
 
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
-FROM roles r JOIN permissions p ON p.code IN ('attendance.view', 'attendance.mark')
+FROM roles r JOIN permissions p ON p.code IN ('attendance.view', 'attendance.mark', 'registration_attendance.view', 'registration_attendance.mark')
 WHERE r.name = 'Docente';
 
 INSERT IGNORE INTO course_modules (course_id, module_number, name)

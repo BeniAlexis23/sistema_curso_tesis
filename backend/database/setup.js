@@ -36,6 +36,18 @@ const connection = await mysql.createConnection({
 try {
   await connection.query(schemaSql)
 
+  const [courseColumns] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'courses'`,
+    [databaseName],
+  )
+  if (!courseColumns.some((column) => column.COLUMN_NAME === 'attendance_conformity_at')) {
+    await connection.query(
+      `ALTER TABLE \`${databaseName}\`.courses
+       ADD COLUMN attendance_conformity_at DATETIME NULL AFTER schedule_document_url`,
+    )
+  }
+
   const [administratorColumns] = await connection.query(
     `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
      FROM information_schema.COLUMNS
@@ -134,19 +146,6 @@ try {
     )
   }
 
-  // Retira estructuras de asistencia descartadas por los requerimientos finales.
-  await connection.query(`DROP TABLE IF EXISTS ${databaseName}.attendance_corrections`)
-  const [moduleSessionColumns] = await connection.query(
-    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'module_sessions'`,
-    [databaseName],
-  )
-  if (moduleSessionColumns.some((column) => column.COLUMN_NAME === 'late_tolerance_minutes')) {
-    await connection.query(
-      `ALTER TABLE ${databaseName}.module_sessions DROP COLUMN late_tolerance_minutes`,
-    )
-  }
-
   const [registrationColumns] = await connection.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'registrations'`,
@@ -156,35 +155,98 @@ try {
   if (!columnNames.has('observation_text')) await connection.query(`ALTER TABLE \`${databaseName}\`.registrations ADD COLUMN observation_text TEXT NULL`)
   if (!columnNames.has('correction_token_hash')) await connection.query(`ALTER TABLE \`${databaseName}\`.registrations ADD COLUMN correction_token_hash CHAR(64) NULL UNIQUE`)
   if (!columnNames.has('payment_mode')) await connection.query(`ALTER TABLE \`${databaseName}\`.registrations ADD COLUMN payment_mode ENUM('option1', 'option2') NOT NULL DEFAULT 'option1' AFTER phone`)
-  // Estos conceptos vencen el mismo día en la opción 1 y forman una sola cuota.
-  await connection.query(
-    `UPDATE registration_payments p2
-     JOIN registrations r ON r.id = p2.registration_id AND r.payment_mode = 'option1'
-     LEFT JOIN registration_payments p3 ON p3.registration_id = p2.registration_id AND p3.installment_order = 3 AND p3.concept = 'II módulo'
-     SET p2.concept = 'Tutoría especializada + II módulo', p2.amount = 1600.00,
-         p2.status = IF(p3.id IS NOT NULL AND p2.status = 'paid' AND p3.status = 'paid', 'paid', p2.status),
-         p2.paid_at = IF(p3.id IS NOT NULL AND p2.status = 'paid' AND p3.status = 'paid', COALESCE(p3.paid_at, p2.paid_at), p2.paid_at)
-     WHERE p2.installment_order = 2 AND p2.concept = 'Tutoría especializada'`,
-  )
-  await connection.query(
-    `DELETE p3 FROM registration_payments p3
-     JOIN registrations r ON r.id = p3.registration_id AND r.payment_mode = 'option1'
-     WHERE p3.installment_order = 3 AND p3.concept = 'II módulo'`,
-  )
-  await connection.query(
-    `UPDATE registration_payments p
-     JOIN registrations r ON r.id = p.registration_id AND r.payment_mode = 'option1'
-     SET p.installment_order = 3 WHERE p.installment_order = 4 AND p.concept = 'III módulo'`,
-  )
+
+  // El setup de producción es estrictamente aditivo: nunca elimina tablas,
+  // columnas ni registros existentes. Las migraciones históricas que
+  // consolidaban cuotas ya se aplicaron en la versión base de producción.
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@undc.edu.pe').toLowerCase()
-  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin12345!'
-  const passwordHash = await bcrypt.hash(adminPassword, 12)
-  await connection.query(
-    `INSERT INTO \`${databaseName}\`.administrators (role_id, name, email, password_hash)
-     VALUES (1, ?, ?, ?) ON DUPLICATE KEY UPDATE
-       name = VALUES(name), password_hash = VALUES(password_hash)`,
-    ['Administrador UNDC', adminEmail, passwordHash],
+  const [[existingAdministrator]] = await connection.query(
+    `SELECT id FROM \`${databaseName}\`.administrators WHERE email = ? LIMIT 1`,
+    [adminEmail],
   )
+  if (!existingAdministrator) {
+    const adminPassword = process.env.ADMIN_PASSWORD || 'Admin12345!'
+    const passwordHash = await bcrypt.hash(adminPassword, 12)
+    await connection.query(
+      `INSERT IGNORE INTO \`${databaseName}\`.administrators (role_id, name, email, password_hash)
+       VALUES (1, ?, ?, ?)`,
+      ['Administrador UNDC', adminEmail, passwordHash],
+    )
+  }
+
+  const requiredSchema = {
+    courses: ['id', 'attendance_conformity_at'],
+    registrations: ['id', 'course_id', 'payment_mode', 'status'],
+    registration_documents: ['id', 'registration_id'],
+    registration_payments: ['id', 'registration_id', 'status'],
+    roles: ['id', 'name'],
+    permissions: ['id', 'code'],
+    role_permissions: ['role_id', 'permission_id'],
+    administrators: ['id', 'role_id', 'name', 'last_names', 'email', 'password_hash'],
+    course_modules: ['id', 'course_id', 'module_number', 'teacher_id'],
+    module_sessions: ['id', 'module_id', 'session_number', 'teacher_id', 'check_in_opens_minutes'],
+    teacher_attendances: ['id', 'session_id', 'teacher_id', 'check_in_at', 'check_out_at'],
+    registration_attendances: ['id', 'session_id', 'registration_id', 'status'],
+  }
+  const [installedColumns] = await connection.query(
+    `SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ?`,
+    [databaseName],
+  )
+  const installedSchema = new Map()
+  for (const column of installedColumns) {
+    if (!installedSchema.has(column.TABLE_NAME)) installedSchema.set(column.TABLE_NAME, new Set())
+    installedSchema.get(column.TABLE_NAME).add(column.COLUMN_NAME)
+  }
+  const missingSchema = []
+  for (const [table, columns] of Object.entries(requiredSchema)) {
+    for (const column of columns) {
+      if (!installedSchema.get(table)?.has(column)) missingSchema.push(`${table}.${column}`)
+    }
+  }
+  if (missingSchema.length) {
+    throw new Error(`La actualización de la base de datos quedó incompleta: ${missingSchema.join(', ')}`)
+  }
+
+  const requiredPermissionCodes = [
+    'registrations.view', 'registrations.manage', 'registrations.delete',
+    'payments.view', 'payments.manage', 'reports.view', 'reports.export',
+    'users.view', 'users.manage', 'roles.view', 'roles.manage',
+    'attendance.view', 'attendance.mark', 'attendance.manage', 'attendance.export',
+    'attendance.approve', 'registration_attendance.view',
+    'registration_attendance.mark', 'registration_attendance.export',
+  ]
+  const [installedPermissions] = await connection.query(
+    'SELECT code FROM permissions WHERE code IN (?)',
+    [requiredPermissionCodes],
+  )
+  const installedPermissionCodes = new Set(installedPermissions.map(permission => permission.code))
+  const missingPermissions = requiredPermissionCodes.filter(code => !installedPermissionCodes.has(code))
+  if (missingPermissions.length) {
+    throw new Error(`No se instalaron todos los permisos requeridos: ${missingPermissions.join(', ')}`)
+  }
+
+  const [[systemRoles]] = await connection.query(
+    `SELECT
+       SUM(id = 1 AND name = 'Super Administrador' AND is_system = 1 AND is_active = 1) AS super_admin,
+       SUM(name = 'Docente' AND is_system = 1 AND is_active = 1) AS teacher
+     FROM roles`,
+  )
+  if (!Number(systemRoles.super_admin) || !Number(systemRoles.teacher)) {
+    throw new Error('Los roles del sistema no quedaron configurados correctamente')
+  }
+
+  const [[{ superAdminPermissionCount }]] = await connection.query(
+    `SELECT COUNT(DISTINCT p.code) AS superAdminPermissionCount
+     FROM role_permissions rp
+     JOIN permissions p ON p.id = rp.permission_id
+     WHERE rp.role_id = 1 AND p.code IN (?)`,
+    [requiredPermissionCodes],
+  )
+  if (Number(superAdminPermissionCount) !== requiredPermissionCodes.length) {
+    throw new Error('El Super Administrador no recibió todos los permisos requeridos')
+  }
+
   console.log('Base de datos configurada correctamente')
   console.log(`Usuario administrativo: ${adminEmail}`)
 } finally {

@@ -1,4 +1,4 @@
-import { BarChart3, CalendarCheck, ClipboardCheck, CreditCard, Home, LogOut, Menu, ShieldCheck, UserCog, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, ClipboardCheck, CreditCard, FileText, Home, LogOut, Menu, ShieldCheck, UserCog, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { clearAdminToken, hasAdminPermission } from '../services/adminService'
@@ -8,13 +8,17 @@ const modules = [
   { to: '/admin', label: 'Inscripciones', icon: ClipboardCheck, end: true, permission: 'registrations.view' },
   { to: '/admin/pagos', label: 'Seguimiento de pagos', icon: CreditCard, permission: 'payments.view' },
   { to: '/admin/reportes', label: 'Reportes', icon: BarChart3, permission: 'reports.view' },
-  { to: '/admin/asistencias', label: 'Asistencia docente', icon: CalendarCheck, permission: 'attendance.view' },
+  { to: '/admin/asistencias', label: 'Asistencias por módulo', icon: CalendarCheck, end: true, permission: 'attendance.view' },
+  { to: '/admin/asistencias/fichas', label: 'Asistencia de estudiantes', icon: FileText, permission: 'registration_attendance.export' },
   { to: '/admin/usuarios', label: 'Usuarios', icon: UserCog, permission: 'users.view' },
   { to: '/admin/roles', label: 'Roles y permisos', icon: ShieldCheck, permission: 'roles.view' },
 ]
 
 function ModuleLinks({ closeMenu }) {
-  return <>{modules.filter(module => hasAdminPermission(module.permission)).map(({ to, label, icon: Icon, end }) => <NavLink end={end} key={to} onClick={closeMenu} to={to} className={({ isActive }) => `flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-bold transition ${isActive ? 'bg-undc-blue text-white shadow-lg shadow-blue-950/20' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}><Icon size={19} />{label}</NavLink>)}</>
+  const onlyExportsStudents = hasAdminPermission('registration_attendance.export')
+    && !hasAdminPermission('attendance.mark') && !hasAdminPermission('attendance.manage')
+  return <>{modules.filter(module => hasAdminPermission(module.permission)
+    && !(onlyExportsStudents && module.to === '/admin/asistencias')).map(({ to, label, icon: Icon, end }) => <NavLink end={end} key={to} onClick={closeMenu} to={to} className={({ isActive }) => `flex min-h-12 items-center gap-3 rounded-lg px-3 text-sm font-bold transition ${isActive ? 'bg-undc-blue text-white shadow-lg shadow-blue-950/20' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}><Icon size={19} />{label}</NavLink>)}</>
 }
 
 export default function AdminLayout({ children }) {
