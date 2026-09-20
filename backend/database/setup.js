@@ -83,14 +83,17 @@ try {
   }
   let needsAdministratorRoleForeignKey = validAdministratorRoleForeignKeys.length === 0
 
-  // Los administradores anteriores al modulo de roles tenian acceso total.
-  // Tambien corrige valores 0 o roles inexistentes de instalaciones actualizadas manualmente.
-  await connection.query(
-    `UPDATE \`${databaseName}\`.administrators a
+  // Nunca corrige filas existentes automáticamente. Si una instalación antigua
+  // contiene usuarios sin un rol válido, se detiene para que se revise de forma explícita.
+  const [[invalidAdministratorRoles]] = await connection.query(
+    `SELECT COUNT(*) AS invalid_count
+     FROM \`${databaseName}\`.administrators a
      LEFT JOIN \`${databaseName}\`.roles r ON r.id = a.role_id
-     SET a.role_id = 1
      WHERE a.role_id IS NULL OR r.id IS NULL`,
   )
+  if (Number(invalidAdministratorRoles.invalid_count)) {
+    throw new Error('Existen administradores sin un rol válido; no se modificó ningún registro')
+  }
 
   const roleIdNeedsNormalization = !roleIdColumn || (
     roleIdColumn.DATA_TYPE !== 'int'
@@ -186,6 +189,7 @@ try {
     course_modules: ['id', 'course_id', 'module_number', 'teacher_id'],
     module_sessions: ['id', 'module_id', 'session_number', 'teacher_id', 'check_in_opens_minutes'],
     teacher_attendances: ['id', 'session_id', 'teacher_id', 'check_in_at', 'check_out_at'],
+    staff_attendances: ['id', 'session_id', 'administrator_id', 'check_in_at', 'check_out_at'],
     registration_attendances: ['id', 'session_id', 'registration_id', 'status'],
   }
   const [installedColumns] = await connection.query(
@@ -215,6 +219,7 @@ try {
     'attendance.view', 'attendance.mark', 'attendance.manage', 'attendance.export',
     'attendance.approve', 'registration_attendance.view',
     'registration_attendance.mark', 'registration_attendance.export',
+    'staff_attendance.view', 'staff_attendance.mark', 'staff_attendance.manage', 'staff_attendance.export',
   ]
   const [installedPermissions] = await connection.query(
     'SELECT code FROM permissions WHERE code IN (?)',
@@ -229,21 +234,42 @@ try {
   const [[systemRoles]] = await connection.query(
     `SELECT
        SUM(id = 1 AND name = 'Super Administrador' AND is_system = 1 AND is_active = 1) AS super_admin,
-       SUM(name = 'Docente' AND is_system = 1 AND is_active = 1) AS teacher
+       SUM(name = 'Docente' AND is_system = 1 AND is_active = 1) AS teacher,
+       SUM(name = 'Coordinador general' AND is_system = 1 AND is_active = 1) AS general_coordinator,
+       SUM(name = 'Coordinador académico' AND is_system = 1 AND is_active = 1) AS academic_coordinator,
+       SUM(name = 'Asistente administrativo' AND is_system = 1 AND is_active = 1) AS administrative_assistant,
+       SUM(name = 'Soporte informático' AND is_system = 1 AND is_active = 1) AS technical_support
      FROM roles`,
   )
-  if (!Number(systemRoles.super_admin) || !Number(systemRoles.teacher)) {
+  if (!Number(systemRoles.super_admin) || !Number(systemRoles.teacher)
+      || !Number(systemRoles.general_coordinator) || !Number(systemRoles.academic_coordinator)
+      || !Number(systemRoles.administrative_assistant) || !Number(systemRoles.technical_support)) {
     throw new Error('Los roles del sistema no quedaron configurados correctamente')
   }
 
+  const [staffRolePermissions] = await connection.query(
+    `SELECT r.name, COUNT(DISTINCT p.code) AS permission_count
+     FROM roles r
+     LEFT JOIN role_permissions rp ON rp.role_id = r.id
+     LEFT JOIN permissions p ON p.id = rp.permission_id
+       AND p.code IN ('staff_attendance.view', 'staff_attendance.mark')
+     WHERE r.name IN ('Coordinador general', 'Coordinador académico', 'Asistente administrativo', 'Soporte informático')
+     GROUP BY r.id, r.name`,
+  )
+  if (staffRolePermissions.length !== 4
+      || staffRolePermissions.some(role => Number(role.permission_count) !== 2)) {
+    throw new Error('Los roles del personal no recibieron sus permisos de asistencia')
+  }
+
+  const superAdminPermissionCodes = requiredPermissionCodes.filter(code => code !== 'staff_attendance.mark')
   const [[{ superAdminPermissionCount }]] = await connection.query(
     `SELECT COUNT(DISTINCT p.code) AS superAdminPermissionCount
      FROM role_permissions rp
      JOIN permissions p ON p.id = rp.permission_id
      WHERE rp.role_id = 1 AND p.code IN (?)`,
-    [requiredPermissionCodes],
+    [superAdminPermissionCodes],
   )
-  if (Number(superAdminPermissionCount) !== requiredPermissionCodes.length) {
+  if (Number(superAdminPermissionCount) !== superAdminPermissionCodes.length) {
     throw new Error('El Super Administrador no recibió todos los permisos requeridos')
   }
 

@@ -24,6 +24,7 @@ export function getAdminHomePath() {
   if (permissions.includes('reports.view')) return '/admin/reportes'
   if (permissions.includes('registration_attendance.export')) return '/admin/asistencias/fichas'
   if (permissions.includes('attendance.view')) return '/admin/asistencias'
+  if (permissions.includes('staff_attendance.view')) return '/admin/asistencia-personal'
   if (permissions.includes('users.view')) return '/admin/usuarios'
   if (permissions.includes('roles.view')) return '/admin/roles'
   return '/admin/login'
@@ -81,6 +82,25 @@ export const markTeacherCheckOut = sessionId => request(`/admin/attendance/sessi
 export const getRegistrationAttendance = sessionId => request(`/admin/attendance/sessions/${sessionId}/students`)
 export const saveRegistrationAttendance = (sessionId, entries) => request(`/admin/attendance/sessions/${sessionId}/students`, { method: 'PUT', body: JSON.stringify({ entries }) })
 export const listRegistrationAttendanceSessions = () => request('/admin/attendance/students/exportable-sessions')
+export const getStaffAttendance = () => request('/admin/staff-attendance')
+export const markStaffCheckIn = sessionId => request(`/admin/staff-attendance/sessions/${sessionId}/check-in`, { method: 'POST' })
+export const markStaffCheckOut = sessionId => request(`/admin/staff-attendance/sessions/${sessionId}/check-out`, { method: 'POST' })
+export const updateStaffAttendance = (attendanceId, data) => request(`/admin/staff-attendance/${attendanceId}/times`, { method: 'PATCH', body: JSON.stringify(data) })
+
+export async function downloadStaffAttendance(format) {
+  const response = await fetch(`${API_URL}/admin/staff-attendance/export/${format}`, {
+    headers: { Authorization: `Bearer ${getAdminToken()}` },
+  })
+  if (!response.ok) {
+    const result = await readResponse(response)
+    throw new Error(result?.message || 'No se pudo exportar la asistencia del personal')
+  }
+  const disposition = response.headers.get('content-disposition') || ''
+  const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] || `asistencia-personal.${format === 'excel' ? 'xlsx' : 'pdf'}`
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url)
+}
 
 export async function downloadAllRegistrationAttendance(format) {
   const response = await fetch(`${API_URL}/admin/attendance/students/export/${format}`, {
