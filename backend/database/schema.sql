@@ -155,6 +155,19 @@ CREATE TABLE IF NOT EXISTS teacher_attendances (
   UNIQUE KEY uq_teacher_attendance_session (session_id)
 );
 
+CREATE TABLE IF NOT EXISTS staff_attendances (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  session_id INT UNSIGNED NOT NULL,
+  administrator_id INT UNSIGNED NOT NULL,
+  check_in_at DATETIME NOT NULL,
+  check_out_at DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_staff_attendance_session FOREIGN KEY (session_id) REFERENCES module_sessions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_staff_attendance_administrator FOREIGN KEY (administrator_id) REFERENCES administrators(id),
+  UNIQUE KEY uq_staff_attendance_session_administrator (session_id, administrator_id)
+);
+
 CREATE TABLE IF NOT EXISTS registration_attendances (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   session_id INT UNSIGNED NOT NULL,
@@ -179,15 +192,19 @@ INSERT INTO bank_accounts (name, account_number, cci)
 SELECT 'Banco Interbank', '4013004527840', NULL
 WHERE NOT EXISTS (SELECT 1 FROM bank_accounts WHERE name = 'Banco Interbank');
 
-INSERT INTO roles (id, name, description, is_system, is_active)
-VALUES (1, 'Super Administrador', 'Acceso completo a todos los módulos y configuraciones del sistema.', TRUE, TRUE)
-ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), is_system = TRUE, is_active = TRUE;
+INSERT IGNORE INTO roles (id, name, description, is_system, is_active)
+VALUES (1, 'Super Administrador', 'Acceso completo a todos los módulos y configuraciones del sistema.', TRUE, TRUE);
 
-INSERT INTO roles (name, description, is_system, is_active)
-VALUES ('Docente', 'Marca su entrada y salida y registra la asistencia de estudiantes en sus sesiones.', TRUE, TRUE)
-ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), is_system = TRUE, is_active = TRUE;
+INSERT IGNORE INTO roles (name, description, is_system, is_active)
+VALUES ('Docente', 'Marca su entrada y salida y registra la asistencia de estudiantes en sus sesiones.', TRUE, TRUE);
 
-INSERT INTO permissions (code, name, description, module) VALUES
+INSERT IGNORE INTO roles (name, description, is_system, is_active) VALUES
+  ('Coordinador general', 'Registra su entrada y salida en las sesiones del curso.', TRUE, TRUE),
+  ('Coordinador académico', 'Registra su entrada y salida en las sesiones del curso.', TRUE, TRUE),
+  ('Asistente administrativo', 'Registra su entrada y salida en las sesiones del curso.', TRUE, TRUE),
+  ('Soporte informático', 'Registra su entrada y salida en las sesiones del curso.', TRUE, TRUE);
+
+INSERT IGNORE INTO permissions (code, name, description, module) VALUES
   ('registrations.view', 'Ver inscripciones', 'Consultar inscripciones y documentos enviados.', 'Inscripciones'),
   ('registrations.manage', 'Gestionar inscripciones', 'Editar inscripciones, documentos y estados.', 'Inscripciones'),
   ('registrations.delete', 'Eliminar inscripciones', 'Eliminar una inscripción con sus pagos y documentos.', 'Inscripciones'),
@@ -204,18 +221,26 @@ INSERT INTO permissions (code, name, description, module) VALUES
   ('attendance.manage', 'Gestionar asistencia docente', 'Asignar docentes, configurar sesiones y editar entradas y salidas.', 'Asistencia docente'),
   ('attendance.export', 'Exportar asistencia docente', 'Descargar asistencias docentes de todos los módulos en PDF o Excel.', 'Asistencia docente'),
   ('attendance.approve', 'Dar conformidad a asistencias', 'Activar o retirar la conformidad del decano que aparece en los PDF de asistencia.', 'Asistencias'),
+  ('staff_attendance.view', 'Ver asistencia del personal', 'Consultar mis entradas y salidas por sesión; con exportación, las de todo el personal.', 'Asistencia del personal'),
+  ('staff_attendance.mark', 'Marcar asistencia del personal', 'Registrar mi propia entrada y salida en cada sesión.', 'Asistencia del personal'),
+  ('staff_attendance.manage', 'Gestionar asistencia del personal', 'Consultar y corregir las horas registradas por el personal.', 'Asistencia del personal'),
+  ('staff_attendance.export', 'Exportar asistencia del personal', 'Descargar la asistencia del personal de todas las sesiones en PDF o Excel.', 'Asistencia del personal'),
   ('registration_attendance.view', 'Ver asistencia de estudiantes', 'Consultar Presente o Ausente por sesión asignada; con gestión o exportación, todas.', 'Asistencia de estudiantes'),
   ('registration_attendance.mark', 'Registrar asistencia de estudiantes', 'Guardar y editar Presente o Ausente en las sesiones asignadas.', 'Asistencia de estudiantes'),
-  ('registration_attendance.export', 'Exportar asistencia de estudiantes', 'Descargar asistencias guardadas de cualquier sesión en PDF o Excel.', 'Asistencia de estudiantes')
-ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), module = VALUES(module);
+  ('registration_attendance.export', 'Exportar asistencia de estudiantes', 'Descargar asistencias guardadas de cualquier sesión en PDF o Excel.', 'Asistencia de estudiantes');
 
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
-SELECT 1, id FROM permissions;
+SELECT 1, id FROM permissions WHERE code <> 'staff_attendance.mark';
 
 INSERT IGNORE INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r JOIN permissions p ON p.code IN ('attendance.view', 'attendance.mark', 'registration_attendance.view', 'registration_attendance.mark')
 WHERE r.name = 'Docente';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r JOIN permissions p ON p.code IN ('staff_attendance.view', 'staff_attendance.mark')
+WHERE r.name IN ('Coordinador general', 'Coordinador académico', 'Asistente administrativo', 'Soporte informático');
 
 INSERT IGNORE INTO course_modules (course_id, module_number, name)
 SELECT c.id, module_data.module_number, module_data.name

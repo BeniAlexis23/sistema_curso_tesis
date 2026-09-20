@@ -12,6 +12,7 @@ import AdminRolesPage from "./pages/AdminRolesPage";
 import AdminAttendancePage from "./pages/AdminAttendancePage";
 import RegistrationAttendancePage from "./pages/RegistrationAttendancePage";
 import RegistrationAttendanceExportsPage from "./pages/RegistrationAttendanceExportsPage";
+import StaffAttendancePage from "./pages/StaffAttendancePage";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 
 function LegacyStudentAttendanceRedirect() {
@@ -83,6 +84,14 @@ export default function App() {
         element={
           <ProtectedAdminRoute permission="registration_attendance.export">
             <RegistrationAttendanceExportsPage />
+          </ProtectedAdminRoute>
+        }
+      />
+      <Route
+        path="/admin/asistencia-personal"
+        element={
+          <ProtectedAdminRoute permission="staff_attendance.view">
+            <StaffAttendancePage />
           </ProtectedAdminRoute>
         }
       />

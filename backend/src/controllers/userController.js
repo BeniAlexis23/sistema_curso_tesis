@@ -117,10 +117,12 @@ export async function deleteUser(req, res, next) {
       `SELECT
          (SELECT COUNT(*) FROM course_modules WHERE teacher_id = ?) AS assignedModules,
          (SELECT COUNT(*) FROM module_sessions WHERE teacher_id = ?) AS assignedSessions,
-         (SELECT COUNT(*) FROM teacher_attendances WHERE teacher_id = ?) AS attendances`,
-      [req.params.id, req.params.id, req.params.id],
+         (SELECT COUNT(*) FROM teacher_attendances WHERE teacher_id = ?) AS attendances,
+         (SELECT COUNT(*) FROM staff_attendances WHERE administrator_id = ?) AS staffAttendances`,
+      [req.params.id, req.params.id, req.params.id, req.params.id],
     )
-    if (Number(usage.assignedModules) || Number(usage.assignedSessions) || Number(usage.attendances)) {
+    if (Number(usage.assignedModules) || Number(usage.assignedSessions)
+        || Number(usage.attendances) || Number(usage.staffAttendances)) {
       return res.status(409).json({ message: 'No puedes eliminar un usuario vinculado al control de asistencias; retira sus asignaciones o consérvalo si ya forma parte del historial' })
     }
     await pool.query('DELETE FROM administrators WHERE id = ?', [req.params.id])

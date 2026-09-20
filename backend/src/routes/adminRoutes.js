@@ -13,6 +13,10 @@ import {
   exportRegistrationAttendanceExcel, exportRegistrationAttendancePdf,
   listRegistrationAttendance, listRegistrationAttendanceSessions, saveRegistrationAttendance,
 } from '../controllers/registrationAttendanceController.js'
+import {
+  exportStaffAttendanceExcel, exportStaffAttendancePdf, listStaffAttendance,
+  staffCheckIn, staffCheckOut, updateStaffAttendance,
+} from '../controllers/staffAttendanceController.js'
 import { authenticateAdmin } from '../middleware/authenticateAdmin.js'
 import { requirePermission } from '../middleware/requirePermission.js'
 import { uploadOneDocument } from '../middleware/uploadDocuments.js'
@@ -46,6 +50,12 @@ router.get('/attendance/students/export/excel', requirePermission('registration_
 router.get('/attendance/students/export/pdf', requirePermission('registration_attendance.export'), exportAllRegistrationAttendancePdf)
 router.get('/attendance/sessions/:id/students/export/excel', requirePermission('registration_attendance.export'), exportRegistrationAttendanceExcel)
 router.get('/attendance/sessions/:id/students/export/pdf', requirePermission('registration_attendance.export'), exportRegistrationAttendancePdf)
+router.get('/staff-attendance', requirePermission('staff_attendance.view'), listStaffAttendance)
+router.post('/staff-attendance/sessions/:id/check-in', requirePermission('staff_attendance.mark'), staffCheckIn)
+router.post('/staff-attendance/sessions/:id/check-out', requirePermission('staff_attendance.mark'), staffCheckOut)
+router.patch('/staff-attendance/:id/times', requirePermission('staff_attendance.manage'), updateStaffAttendance)
+router.get('/staff-attendance/export/excel', requirePermission('staff_attendance.export'), exportStaffAttendanceExcel)
+router.get('/staff-attendance/export/pdf', requirePermission('staff_attendance.export'), exportStaffAttendancePdf)
 router.get('/registrations/:id/documents/:documentId', requirePermission('registrations.view'), downloadDocument)
 router.put('/registrations/:id/documents/:documentId', requirePermission('registrations.manage'), uploadOneDocument, replaceDocument)
 router.get('/users', requirePermission('users.view'), listUsers)
