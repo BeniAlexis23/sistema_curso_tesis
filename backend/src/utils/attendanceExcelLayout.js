@@ -41,6 +41,7 @@ export function setupAttendanceSheet(workbook, sheet, {
   lastColumn,
   columnCount,
   layout = 'portrait',
+  footerLabel = 'Reporte de asistencia',
 }) {
   workbook.creator = 'Universidad Nacional de Cañete'
   workbook.company = 'Universidad Nacional de Cañete'
@@ -61,7 +62,7 @@ export function setupAttendanceSheet(workbook, sheet, {
     horizontalCentered: true,
     margins: { left: 0.3, right: 0.3, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 },
   }
-  sheet.headerFooter.oddFooter = '&LUniversidad Nacional de Cañete&C&P de &N&RReporte de asistencia'
+  sheet.headerFooter.oddFooter = `&LUniversidad Nacional de Cañete&C&P de &N&R${footerLabel}`
 
   sheet.getRow(1).height = 31
   sheet.getRow(2).height = 30
