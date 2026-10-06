@@ -98,16 +98,11 @@ export async function staffCheckIn(req, res, next) {
   try {
     await connection.beginTransaction()
     const [sessions] = await connection.query(
-      `SELECT id, scheduled_end,
-              DATE_SUB(scheduled_start, INTERVAL check_in_opens_minutes MINUTE) AS opens_at,
-              DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR) AS peru_now
-       FROM module_sessions WHERE id = ? FOR UPDATE`,
+      'SELECT id FROM module_sessions WHERE id = ? FOR UPDATE',
       [req.params.id],
     )
     if (!sessions.length) { await connection.rollback(); return res.status(404).json({ message: 'Sesión no encontrada' }) }
     const session = sessions[0]
-    if (session.peru_now < session.opens_at) { await connection.rollback(); return res.status(409).json({ message: `La entrada estará disponible desde ${session.opens_at}` }) }
-    if (session.peru_now > session.scheduled_end) { await connection.rollback(); return res.status(409).json({ message: 'El horario de esta sesión ya finalizó' }) }
     await connection.query(
       `INSERT INTO staff_attendances (session_id, administrator_id, check_in_at)
        VALUES (?, ?, DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR))`,
@@ -130,16 +125,13 @@ export async function staffCheckOut(req, res, next) {
   try {
     await connection.beginTransaction()
     const [rows] = await connection.query(
-      `SELECT sa.id, sa.check_out_at, s.scheduled_start,
-              DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR) AS peru_now
-       FROM staff_attendances sa JOIN module_sessions s ON s.id = sa.session_id
-       WHERE sa.session_id = ? AND sa.administrator_id = ? FOR UPDATE`,
+      `SELECT id, check_out_at FROM staff_attendances
+       WHERE session_id = ? AND administrator_id = ? FOR UPDATE`,
       [req.params.id, req.admin.id],
     )
     if (!rows.length) { await connection.rollback(); return res.status(409).json({ message: 'Primero debes registrar tu entrada' }) }
     const row = rows[0]
     if (row.check_out_at) { await connection.rollback(); return res.status(409).json({ message: 'Tu salida de esta sesión ya fue registrada' }) }
-    if (row.peru_now < row.scheduled_start) { await connection.rollback(); return res.status(409).json({ message: 'La salida estará disponible cuando inicie la sesión' }) }
     await connection.query(
       `UPDATE staff_attendances SET check_out_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 HOUR)
        WHERE id = ?`, [row.id],
